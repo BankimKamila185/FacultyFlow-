@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// Enums are not supported in SQLite, using String instead
+// Role: FACULTY, HOD, ADMIN, OPERATIONS
+// TaskStatus: PENDING, IN_PROGRESS, COMPLETED, OVERDUE
+// WorkflowStatus: ACTIVE, PAUSED, COMPLETED, FAILED
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  role      String   @default("FACULTY")
+  googleId  String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  tasksAssigned Task[] @relation("AssignedTo")
+  tasksCreated  Task[] @relation("CreatedBy")
+  notifications Notification[]
+}
+
+model Workflow {
+  id          String         @id @default(uuid())
+  type        String         // e.g., "Exam Proposal", "Session Plan", "Academic Report"
+  status      String         @default("ACTIVE")
+  metadata    String?        // Stores dynamic workflow data (JSON string)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  
+  tasks       Task[]
+}
+
+model Task {
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  status      String @default("PENDING")
+  deadline    DateTime?
+  
+  workflowId  String?
+  workflow    Workflow?  @relation(fields: [workflowId], references: [id])
+  
+  assignedToId String
+  assignedTo   User      @relation("AssignedTo", fields: [assignedToId], references: [id])
+  
+  createdById  String
+  createdBy    User      @relation("CreatedBy", fields: [createdById], references: [id])
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  message   String
+  read      Boolean  @default(false)
+  type      String   // e.g., "EMAIL", "IN_APP", "ALERT"
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+}

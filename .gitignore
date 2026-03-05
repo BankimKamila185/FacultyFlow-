@@ -1,0 +1,33 @@
+# Dependency directories
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+frontend_flutter/.dart_tool/
+frontend_flutter/build/
+frontend_flutter/.flutter-plugins
+frontend_flutter/.flutter-plugins-dependencies
+frontend_flutter/.metadata
+frontend_flutter/faculty_flow.iml
+
+# Environments
+.env
+backend/.env
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Database
+backend/dev.db
+backend/dev.db-journal
+
+# Compiled code
+dist/
+backend/dist/
+backend/server.js
