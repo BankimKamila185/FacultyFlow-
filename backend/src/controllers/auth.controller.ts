@@ -28,7 +28,10 @@ export class AuthController {
      */
     static async devLogin(req: Request, res: Response, next: NextFunction) {
         try {
-            if (process.env.NODE_ENV === 'production') {
+            const isProd = process.env.NODE_ENV === 'production';
+            const allowDevLogin = process.env.ALLOW_DEV_LOGIN === 'true';
+
+            if (isProd && !allowDevLogin) {
                 return res.status(403).json({ success: false, error: 'Dev login disabled in production' });
             }
 

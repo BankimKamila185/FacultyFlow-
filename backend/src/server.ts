@@ -29,7 +29,21 @@ export async function createApp() {
     const app = express();
 
     app.use(cors({
-        origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : true,
+        origin: (origin, callback) => {
+            const allowedOrigins = process.env.ALLOWED_ORIGINS 
+                ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) 
+                : [];
+            
+            // In development, allow all origins if not specified
+            if (process.env.NODE_ENV !== 'production' && !origin) return callback(null, true);
+            
+            // Check if origin is allowed
+            if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+                callback(null, true);
+            } else {
+                callback(new Error('Not allowed by CORS'));
+            }
+        },
         credentials: true
     }));
     app.use(express.json());
