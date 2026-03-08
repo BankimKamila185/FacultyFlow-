@@ -16,6 +16,12 @@ if (!admin.apps.length) {
             privateKey: config.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
         };
 
+        logger.info('Firebase Config Status:', { 
+            hasProjectId: !!fbConfig.projectId, 
+            hasClientEmail: !!fbConfig.clientEmail, 
+            hasPrivateKey: !!fbConfig.privateKey 
+        });
+
         if (fbConfig.projectId && fbConfig.clientEmail && fbConfig.privateKey) {
             admin.initializeApp({
                 credential: admin.credential.cert(fbConfig as any),
@@ -24,6 +30,7 @@ if (!admin.apps.length) {
         } else {
             // Check if we have a service account file instead
             const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || './service-account.json';
+            logger.info(`Checking for service account at: ${serviceAccountPath}`);
             try {
                 admin.initializeApp({
                     credential: admin.credential.cert(serviceAccountPath),

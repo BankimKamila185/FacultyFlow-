@@ -341,7 +341,7 @@ export default function App() {
     logout();
   };
 
-  if (!effectiveUser) return <LoginPage onLogin={loginWithGoogle} onDevLogin={handleDevLoginSuccess} />;
+  if (!effectiveUser || (!backendToken && !devUser)) return <LoginPage onLogin={loginWithGoogle} onDevLogin={handleDevLoginSuccess} />;
 
   const navItems = [
     'Dashboard',

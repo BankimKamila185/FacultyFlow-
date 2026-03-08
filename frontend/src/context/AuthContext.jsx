@@ -18,11 +18,28 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
+            if (user && !backendToken) {
+                try {
+                    const idToken = await user.getIdToken();
+                    const res = await fetch(`${API_URL}/auth/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ idToken })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        setBackendToken(data.data.token);
+                        localStorage.setItem('token', data.data.token);
+                    }
+                } catch (err) {
+                    console.error("Silent backend login failed", err);
+                }
+            }
             setLoading(false);
         });
 
         return unsubscribe;
-    }, []);
+    }, [backendToken]);
 
     const loginWithGoogle = async () => {
         try {
