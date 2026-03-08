@@ -31,3 +31,21 @@ backend/dev.db-journal
 dist/
 backend/dist/
 backend/server.js
+frontend/dist/
+frontend/dist-electron/
+frontend/backend/
+
+# Native binaries
+frontend/electron/native/Notify
+
+# Google Service Account Keys (sensitive - never commit)
+backend/service-account.json
+service-account.json
+*-service-account.json
+*.serviceaccount.json
+
+# Mobile build artifacts
+frontend/android/
+frontend/ios/
+frontend/capacitor.config.json
+frontend/faculty_flow.iml

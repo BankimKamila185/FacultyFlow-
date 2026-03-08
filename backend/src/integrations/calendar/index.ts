@@ -1,44 +1,82 @@
-import { google } from 'googleapis';
-import winston from 'winston';
-
-const logger = winston.createLogger({
-    level: 'info',
-    format: winston.format.json(),
-    transports: [new winston.transports.Console()],
-});
-
-const auth = new google.auth.GoogleAuth({
-    scopes: ['https://www.googleapis.com/auth/calendar.events'],
-});
-
-const calendar = google.calendar({ version: 'v3', auth });
+import { google, calendar_v3 } from 'googleapis';
+import { getGoogleOAuthClient } from '../google/oauth';
 
 export class CalendarIntegration {
-    static async createEvent(summary: string, description: string, startTime: Date, endTime: Date, attendees?: string[]) {
+    /**
+     * Creates a Calendar event, optionally appending a Google Meet link.
+     */
+    static async createEvent(
+        userEmail: string,
+        summary: string,
+        description: string,
+        startTime: Date,
+        endTime: Date,
+        attendees: string[] = [],
+        createMeetLink: boolean = false
+    ): Promise<calendar_v3.Schema$Event> {
         try {
-            logger.info(`Simulating creating calendar event: ${summary}`);
-            return {
-                id: 'simulated_event_id',
-                summary,
-                status: 'confirmed'
-            };
+            const auth = await getGoogleOAuthClient(userEmail);
+            const calendar = google.calendar({ version: 'v3', auth });
 
-            // Actual implementation
-            /*
-            const res = await calendar.events.insert({
-              calendarId: 'primary',
-              requestBody: {
+            const event: calendar_v3.Schema$Event = {
                 summary,
                 description,
-                start: { dateTime: startTime.toISOString() },
-                end: { dateTime: endTime.toISOString() },
-                attendees: attendees ? attendees.map(email => ({ email })) : [],
-              }
+                start: {
+                    dateTime: startTime.toISOString(),
+                },
+                end: {
+                    dateTime: endTime.toISOString(),
+                },
+                attendees: attendees.map(email => ({ email }))
+            };
+
+            if (createMeetLink) {
+                event.conferenceData = {
+                    createRequest: {
+                        requestId: `meet-${Date.now()}`,
+                        conferenceSolutionKey: { type: 'hangoutsMeet' }
+                    }
+                };
+            }
+
+            const response = await calendar.events.insert({
+                calendarId: 'primary',
+                conferenceDataVersion: createMeetLink ? 1 : 0,
+                requestBody: event,
             });
-            return res.data;
-            */
+
+            return response.data;
         } catch (error) {
-            logger.error('Error creating calendar event:', error);
+            console.error('Error creating Google Calendar event:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Retrieves upcoming events for the primary calendar.
+     */
+    static async getUpcomingEvents(
+        userEmail: string, 
+        maxResults: number = 100, 
+        timeMin?: string, 
+        timeMax?: string
+    ): Promise<calendar_v3.Schema$Event[]> {
+        try {
+            const auth = await getGoogleOAuthClient(userEmail);
+            const calendar = google.calendar({ version: 'v3', auth });
+
+            const response = await calendar.events.list({
+                calendarId: 'primary',
+                timeMin: timeMin || new Date().toISOString(),
+                timeMax: timeMax,
+                maxResults,
+                singleEvents: true,
+                orderBy: 'startTime',
+            });
+
+            return response.data.items || [];
+        } catch (error) {
+            console.error('Error listing Google Calendar events:', error);
             throw error;
         }
     }

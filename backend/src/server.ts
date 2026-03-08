@@ -28,7 +28,10 @@ const logger = winston.createLogger({
 export async function createApp() {
     const app = express();
 
-    app.use(cors());
+    app.use(cors({
+        origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : true,
+        credentials: true
+    }));
     app.use(express.json());
     app.use(morgan('dev'));
 
@@ -75,6 +78,12 @@ export async function startServer() {
     const server = app.listen(config.PORT, () => {
         logger.info(`🚀 Server running on http://localhost:${config.PORT}`);
         logger.info(`🚀 GraphQL endpoint: http://localhost:${config.PORT}/graphql`);
+        
+        if (config.REDIS_URL !== 'internal') {
+            import('./jobs/worker').then(({ setupCronJobs }) => {
+                setupCronJobs();
+            }).catch(e => logger.error('Failed to init cron jobs', e));
+        }
     });
 
     return server;

@@ -64,5 +64,26 @@ describe('Tasks API Integration Tests', () => {
             expect(response.body.success).toBe(true);
             expect(response.body.data.title).toBe(payload.title);
         });
+
+        it('should update task status', async () => {
+            // First create a task
+            const task = await prisma.task.create({
+                data: {
+                    title: 'Status Update Task',
+                    description: 'Testing status update',
+                    assignedToId: testUser.id,
+                }
+            });
+
+            // Then update its status
+            const response = await request(app)
+                .patch(`/api/tasks/${task.id}/status`)
+                .set('Authorization', `Bearer ${authToken}`)
+                .send({ status: 'COMPLETED' });
+
+            expect(response.status).toBe(200);
+            expect(response.body.success).toBe(true);
+            expect(response.body.data.status).toBe('COMPLETED');
+        });
     });
 });

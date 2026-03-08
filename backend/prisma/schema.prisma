@@ -1,70 +1,111 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "library"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// Enums are not supported in SQLite, using String instead
-// Role: FACULTY, HOD, ADMIN, OPERATIONS
-// TaskStatus: PENDING, IN_PROGRESS, COMPLETED, OVERDUE
-// WorkflowStatus: ACTIVE, PAUSED, COMPLETED, FAILED
-
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  role      String   @default("FACULTY")
-  googleId  String?  @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  tasksAssigned Task[] @relation("AssignedTo")
-  tasksCreated  Task[] @relation("CreatedBy")
-  notifications Notification[]
+  id                 String         @id @default(uuid())
+  email              String         @unique
+  name               String
+  role               String         @default("FACULTY")
+  googleId           String?        @unique
+  googleAccessToken  String?
+  googleRefreshToken String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  sheetUrl           String?
+  bio                String?
+  photoUrl           String?
+  theme              String         @default("light")
+  department         String?
+  deviceTokens       DeviceToken[]
+  inboxEmails        InboxEmail[]
+  notifications      Notification[]
+  tasksAssigned      Task[]         @relation("AssignedTo")
+  tasksCreated       Task[]         @relation("CreatedBy")
 }
 
 model Workflow {
-  id          String         @id @default(uuid())
-  type        String         // e.g., "Exam Proposal", "Session Plan", "Academic Report"
-  status      String         @default("ACTIVE")
-  metadata    String?        // Stores dynamic workflow data (JSON string)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  
-  tasks       Task[]
+  id         String   @id @default(uuid())
+  type       String
+  sprintName String?
+  status     String   @default("ACTIVE")
+  metadata   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  tasks      Task[]
 }
 
 model Task {
-  id          String     @id @default(uuid())
-  title       String
-  description String?
-  status      String @default("PENDING")
-  deadline    DateTime?
-  
-  workflowId  String?
-  workflow    Workflow?  @relation(fields: [workflowId], references: [id])
-  
-  assignedToId String
-  assignedTo   User      @relation("AssignedTo", fields: [assignedToId], references: [id])
-  
-  createdById  String
-  createdBy    User      @relation("CreatedBy", fields: [createdById], references: [id])
+  id                 String            @id @default(uuid())
+  title              String
+  description        String?
+  status             String            @default("PENDING")
+  deadline           DateTime?
+  startDate          DateTime?
+  workflowId         String?
+  assignedToId       String
+  createdById        String
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  escalationLevel    Int               @default(0)
+  prerequisiteTaskId String?
+  remarks            String?
+  assignedTo         User              @relation("AssignedTo", fields: [assignedToId], references: [id])
+  createdBy          User              @relation("CreatedBy", fields: [createdById], references: [id])
+  prerequisiteTask   Task?             @relation("Prerequisite", fields: [prerequisiteTaskId], references: [id])
+  dependentTasks     Task[]            @relation("Prerequisite")
+  workflow           Workflow?         @relation(fields: [workflowId], references: [id])
+  responsibles       TaskResponsible[]
+}
 
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+model TaskResponsible {
+  id        String   @id @default(uuid())
+  taskId    String
+  email     String
+  role      String
+  createdAt DateTime @default(now())
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
   id        String   @id @default(uuid())
   message   String
-  read      Boolean  @default(false)
-  type      String   // e.g., "EMAIL", "IN_APP", "ALERT"
+  isRead    Boolean  @default(false)
+  type      String
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model InboxEmail {
+  id          String   @id @default(uuid())
+  gmailId     String   @unique
+  fromEmail   String
+  toEmail     String
+  subject     String
+  bodySnippet String
+  fullBody    String?
+  category    String   @default("other")
+  aiSummary   String?
+  aiDraft     String?
+  isRead      Boolean  @default(false)
+  sentAt      DateTime
+  userId      String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

@@ -1,64 +1,158 @@
-import { Request, Response, NextFunction } from 'express';
-import { TaskService } from '../services/TaskService';
+import { Request, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
 
-export class TasksController {
-    static async createTask(req: Request, res: Response, next: NextFunction) {
-        try {
-            const task = await TaskService.createTask(req.body);
-            res.status(201).json({ success: true, data: task });
-        } catch (error) {
-            next(error);
+const prisma = new PrismaClient();
+
+/**
+ * GET /api/tasks/my
+ * Returns tasks where the logged-in user's email appears in any Responsible Person slot.
+ * Each task includes sprint name, sub event (workflow type), colleagues, and the user's role.
+ */
+export const getMyTasks = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userEmail = (req as any).user?.email;
+        if (!userEmail) {
+            res.status(401).json({ success: false, message: 'Not authenticated' });
+            return;
         }
-    }
 
-    static async getTasks(req: Request, res: Response, next: NextFunction) {
-        try {
-            const { status, assignedToId } = req.query;
-            const tasks = await TaskService.getTasks({
-                status: status as string,
-                assignedToId: assignedToId as string,
-            });
-            res.status(200).json({ success: true, data: tasks });
-        } catch (error) {
-            next(error);
+        // Find all TaskResponsible rows for this email
+        const myResponsibles = await prisma.taskResponsible.findMany({
+            where: { email: userEmail.toLowerCase() },
+            include: {
+                task: {
+                    include: {
+                        workflow: true,
+                        responsibles: true,
+                    }
+                }
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        const tasks = myResponsibles.map((tr: any) => {
+            const task = tr.task;
+            const colleagues = task.responsibles
+                .filter((r: any) => r.email !== userEmail.toLowerCase())
+                .map((r: any) => ({ email: r.email, role: r.role }));
+
+            return {
+                id: task.id,
+                title: task.title,
+                status: task.status,
+                deadline: task.deadline,
+                startDate: task.startDate,
+                description: task.description,
+                sprintName: task.workflow?.sprintName || null,
+                subEvent: task.workflow?.type || null,
+                myRole: tr.role,
+                responsibleTeam: task.description,
+                remarks: task.remarks || 'noo remark',
+                colleagues,
+                workflowId: task.workflowId,
+            };
+        }).sort((a: any, b: any) => {
+            if (!a.startDate) return 1;
+            if (!b.startDate) return -1;
+            return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+        });
+
+        res.json({ success: true, data: tasks });
+    } catch (error: any) {
+        console.error('Error fetching my tasks:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * GET /api/tasks
+ * Returns all tasks (admin view).
+ */
+export const getAllTasks = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const user = (req as any).user;
+        const whereClause = user?.role === 'FACULTY' ? {
+            OR: [
+                { assignedToId: user.id },
+                { responsibles: { some: { email: user.email?.toLowerCase() } } }
+            ]
+        } : {};
+
+        const tasks = await prisma.task.findMany({
+            where: whereClause,
+            include: {
+                workflow: true,
+                assignedTo: { select: { email: true, name: true } },
+                responsibles: true,
+            },
+            orderBy: { startDate: 'asc' }
+        });
+
+        const formatted = tasks.map((task: any) => ({
+            id: task.id,
+            title: task.title,
+            status: task.status,
+            deadline: task.deadline,
+            startDate: task.startDate,
+            description: task.description,
+            sprintName: task.workflow?.sprintName || null,
+            subEvent: task.workflow?.type || null,
+            assignedTo: task.assignedTo,
+            responsibles: task.responsibles,
+            remarks: task.remarks || 'noo remark',
+            workflowId: task.workflowId,
+        }));
+
+        res.json({ success: true, data: formatted });
+    } catch (error: any) {
+        console.error('Error fetching tasks:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * PATCH /api/tasks/:id/status
+ * Updates the status of a specific task.
+ */
+export const updateTaskStatus = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        
+        const validStatuses = ['PENDING', 'IN_PROGRESS', 'IN_REVIEW', 'COMPLETED', 'OVERDUE'];
+        if (!status || !validStatuses.includes(status)) {
+            res.status(400).json({ success: false, message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
+            return;
         }
-    }
 
-    static async getTaskById(req: Request, res: Response, next: NextFunction) {
-        try {
-            const task = await TaskService.getTaskById(req.params.id);
-            if (!task) {
-                return res.status(404).json({ success: false, error: 'Task not found' });
+        // Check prerequisites if completing
+        if (status === 'COMPLETED') {
+            const currentTask = await prisma.task.findUnique({
+                where: { id },
+                include: { prerequisiteTask: true }
+            } as any);
+
+            const pre = (currentTask as any)?.prerequisiteTask;
+            if ((currentTask as any)?.prerequisiteTaskId && pre && pre.status !== 'COMPLETED') {
+                res.status(400).json({ 
+                    success: false, 
+                    message: `Cannot complete task. Prerequisite task "${pre.title}" is not completed.` 
+                });
+                return;
             }
-            res.status(200).json({ success: true, data: task });
-        } catch (error) {
-            next(error);
         }
-    }
 
-    static async updateTask(req: Request, res: Response, next: NextFunction) {
-        try {
-            // Allow updating status or assignment for simplicity in REST
-            const { status, assignedToId } = req.body;
-            let task;
-            if (status) {
-                task = await TaskService.updateTaskStatus(req.params.id, status as string);
-            }
-            if (assignedToId) {
-                task = await TaskService.assignTask(req.params.id, assignedToId);
-            }
-            res.status(200).json({ success: true, data: task });
-        } catch (error) {
-            next(error);
-        }
-    }
+        const task = await prisma.task.update({
+            where: { id },
+            data: { status }
+        });
 
-    static async deleteTask(req: Request, res: Response, next: NextFunction) {
-        try {
-            await TaskService.deleteTask(req.params.id);
-            res.status(200).json({ success: true, message: 'Task deleted' });
-        } catch (error) {
-            next(error);
-        }
+        // Trigger Google Sheets write-back if we had a dedicated job, but for now just update DB
+        // The SheetsController could be invoked here as well if needed.
+
+        res.json({ success: true, data: task, message: 'Task status updated successfully' });
+    } catch (error: any) {
+        console.error('Error updating task status:', error);
+        res.status(500).json({ success: false, message: error.message });
     }
-}
+};

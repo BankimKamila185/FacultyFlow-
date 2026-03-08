@@ -26,8 +26,10 @@ export class NotificationService {
             // 2. Dispatch Email if type requires it
             if (type === 'EMAIL' || type === 'ALERT') {
                 logger.info(`Dispatching email notification to ${user.email}`);
-                await GmailIntegration.sendEmailWithAttachment(
-                    user.email,
+                // Sending to themselves for now, as we need an authenticated sender's token
+                await GmailIntegration.sendEmail(
+                    user.email, // Sender (needs OAuth token)
+                    user.email, // Recipient
                     'FacultyFlow Notification',
                     message
                 );
@@ -43,7 +45,7 @@ export class NotificationService {
     static async markAsRead(notificationId: string) {
         return prisma.notification.update({
             where: { id: notificationId },
-            data: { read: true },
+            data: { isRead: true },
         });
     }
 

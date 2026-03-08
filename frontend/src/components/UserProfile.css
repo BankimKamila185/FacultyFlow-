@@ -1,0 +1,394 @@
+/* UserProfile.css - Compact & Professional Redesign */
+
+.user-profile-container {
+    padding: 2rem;
+    max-width: 1000px;
+    margin: 0 auto;
+    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.profile-glass-card {
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    border: 1px solid var(--border-color);
+    padding: 2.5rem;
+    box-shadow: var(--shadow-xl);
+    position: relative;
+}
+
+/* Header & Identity - More compact hierarchy */
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 3rem;
+    margin-bottom: 3rem;
+}
+
+.profile-avatar-wrapper {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    padding: 4px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-glow));
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.profile-main-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--bg-card);
+}
+
+.profile-identity {
+    flex: 1;
+}
+
+.profile-name {
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--text-main);
+    letter-spacing: -0.03em;
+    margin-bottom: 0.6rem;
+    background: linear-gradient(to right, var(--text-main), var(--text-dim));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.profile-tags {
+    display: flex;
+    gap: 0.8rem;
+    margin-bottom: 1.2rem;
+}
+
+.profile-role-tag, .profile-dept-tag {
+    padding: 0.4rem 1rem;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.profile-role-tag {
+    background: rgba(var(--primary-rgb), 0.1);
+    color: var(--primary);
+    border: 1px solid rgba(var(--primary-rgb), 0.2);
+}
+
+.profile-dept-tag {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8B5CF6;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.profile-email-sub {
+    font-size: 1rem;
+    color: var(--text-dim);
+    font-weight: 500;
+}
+
+/* Actions - Refined and smaller */
+.profile-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.btn-theme-toggle-profile {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-theme-toggle-profile:hover {
+    background: var(--bg-dark);
+    color: var(--primary);
+    transform: translateY(-2px);
+}
+
+.btn-edit-profile, .btn-logout-profile {
+    padding: 0 1.5rem;
+    height: 44px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-edit-profile {
+    background: var(--text-main);
+    color: var(--bg-card);
+    border: none;
+}
+
+.btn-edit-profile:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+}
+
+.btn-logout-profile {
+    background: transparent;
+    border: 1.5px solid var(--border-color);
+    color: var(--text-main);
+}
+
+.btn-logout-profile:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.05);
+}
+
+/* Sections */
+.profile-bio-section {
+    margin-bottom: 3rem;
+}
+
+.profile-bio-section h3 {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+    font-weight: 800;
+    color: var(--text-main);
+}
+
+.profile-bio {
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: var(--text-dim);
+    max-width: 750px;
+}
+
+/* Stats - Balanced spacing */
+.profile-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 4rem;
+}
+
+.stat-p-card {
+    background: var(--bg-surface);
+    padding: 2rem 1rem;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.stat-p-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--primary);
+    background: var(--bg-card);
+}
+
+.stat-v {
+    display: block;
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--text-main);
+    margin-bottom: 0.4rem;
+    letter-spacing: -0.04em;
+}
+
+.stat-l {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Modal - More compact & Professional */
+.edit-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.edit-modal-content {
+    background: var(--bg-card);
+    width: 90%;
+    max-width: 750px;
+    max-height: 85vh;
+    border-radius: 24px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 40px 80px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    animation: modalPop 0.5s cubic-bezier(0.2, 1, 0.2, 1);
+}
+
+.edit-modal-header {
+    padding: 1.5rem 2.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.edit-modal-header h2 {
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: var(--text-main);
+}
+
+.edit-modal-header p {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+}
+
+.btn-close-edit {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.edit-modal-body {
+    padding: 2rem 2.5rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.edit-section label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 1rem;
+}
+
+.edit-input-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.modal-input {
+    background: var(--bg-surface);
+    border: 1.5px solid var(--border-color);
+    padding: 0.9rem 1.2rem;
+    border-radius: 14px;
+    color: var(--text-main);
+    font-size: 1rem;
+    font-weight: 600;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.modal-input:focus {
+    border-color: var(--primary);
+}
+
+.modal-avatar-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 1rem;
+}
+
+.modal-avatar-option {
+    aspect-ratio: 1;
+    background: var(--bg-surface);
+    border-radius: 16px;
+    padding: 0.5rem;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.modal-avatar-option img {
+    border-radius: 50%;
+}
+
+.modal-avatar-option.selected {
+    border-color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.1);
+}
+
+.avatar-check {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+}
+
+.modal-textarea {
+    width: 100%;
+    min-height: 120px;
+    background: var(--bg-surface);
+    border: 1.5px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.2rem;
+    font-size: 1rem;
+}
+
+.modal-theme-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+.modal-theme-btn {
+    padding: 1rem;
+    border-radius: 16px;
+    font-size: 0.9rem;
+}
+
+.theme-preview {
+    height: 40px;
+    margin-bottom: 0.5rem;
+}
+
+.edit-modal-footer {
+    padding: 1.5rem 2.5rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+.btn-modal-cancel, .btn-modal-save {
+    padding: 0.8rem 1.8rem;
+    border-radius: 12px;
+    font-weight: 800;
+    font-size: 0.95rem;
+}
+
+/* Animations */
+@keyframes modalPop { 
+    from { opacity: 0; transform: scale(0.95) translateY(20px); } 
+    to { opacity: 1; transform: scale(1) translateY(0); } 
+}
+@keyframes slideUp { 
+    from { opacity: 0; transform: translateY(30px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}

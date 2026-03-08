@@ -1,39 +1,47 @@
-import { google } from 'googleapis';
-import winston from 'winston';
-
-const logger = winston.createLogger({
-    level: 'info',
-    format: winston.format.json(),
-    transports: [new winston.transports.Console()],
-});
-
-// Assuming a service account is being used for admin/domain-wide operations
-// In production, this would use the proper service account key JSON or default credentials
-const auth = new google.auth.GoogleAuth({
-    scopes: ['https://www.googleapis.com/auth/gmail.send'],
-});
-
-const gmail = google.gmail({ version: 'v1', auth });
+import { google, gmail_v1 } from 'googleapis';
+import { getGoogleOAuthClient } from '../google/oauth';
 
 export class GmailIntegration {
-    static async sendEmailWithAttachment(to: string, subject: string, bodyText: string, attachmentPath?: string) {
+    /**
+     * Sends an email on behalf of the user
+     */
+    static async sendEmail(
+        userEmail: string,
+        to: string,
+        subject: string,
+        bodyText: string
+    ): Promise<gmail_v1.Schema$Message> {
         try {
-            logger.info(`Simulating sending email to ${to} with subject: ${subject}`);
+            const auth = await getGoogleOAuthClient(userEmail);
+            const gmail = google.gmail({ version: 'v1', auth });
 
-            // We are stubbing the actual implementation here using the googleapis to avoid needing valid credentials during dev setup
-            // A production implementation requires raw RFC 2822 formatting
-            /*
-            const res = await gmail.users.messages.send({
-              userId: 'me',
-              requestBody: {
-                raw: base64EncodedEmailString
-              }
+            // Construct the raw email format required by Gmail API
+            const emailLines = [
+                `To: ${to}`,
+                'Content-type: text/plain;charset=iso-8859-1',
+                'MIME-Version: 1.0',
+                `Subject: ${subject}`,
+                '',
+                bodyText
+            ];
+            const email = emailLines.join('\r\n').trim();
+
+            const encodedEmail = Buffer.from(email)
+                .toString('base64')
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+
+            const response = await gmail.users.messages.send({
+                userId: 'me',
+                requestBody: {
+                    raw: encodedEmail
+                }
             });
-            return res.data;
-            */
-            return true;
+
+            return response.data;
         } catch (error) {
-            logger.error('Error sending email via Gmail:', error);
+            console.error('Error sending email via Gmail:', error);
             throw error;
         }
     }

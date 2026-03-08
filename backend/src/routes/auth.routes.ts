@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller';
+import { authenticate } from '../middleware/auth';
 
 const router = Router();
 
@@ -37,6 +38,9 @@ const router = Router();
  */
 router.post('/login', AuthController.login);
 
+// DEV ONLY: login as any faculty by email without Google OAuth
+router.post('/dev-login', AuthController.devLogin);
+
 /**
  * @swagger
  * /auth/logout:
@@ -50,5 +54,32 @@ router.post('/login', AuthController.login);
  *         description: Logged out successfully
  */
 router.post('/logout', AuthController.logout);
+
+/**
+ * @swagger
+ * /auth/fcm-token:
+ *   post:
+ *     summary: Register a Firebase Cloud Messaging token for push notifications
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fcmToken
+ *             properties:
+ *               fcmToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Token registered successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/fcm-token', authenticate, AuthController.registerFCMToken);
 
 export default router;

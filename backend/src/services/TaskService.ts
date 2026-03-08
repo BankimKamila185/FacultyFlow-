@@ -1,5 +1,6 @@
 import { User, Task } from '@prisma/client';
 import { prisma } from '../models/prisma';
+import { GoogleCalendarService } from './GoogleCalendarService';
 
 export class TaskService {
     static async createTask(data: {
@@ -10,9 +11,19 @@ export class TaskService {
         createdById: string;
         workflowId?: string;
     }): Promise<Task> {
-        return prisma.task.create({
+        const task = await prisma.task.create({
             data,
         });
+
+        const assignedUser = await prisma.user.findUnique({ where: { id: data.assignedToId } });
+        if (assignedUser && assignedUser.googleAccessToken && task.deadline) {
+            // Call async context without blocking response
+            GoogleCalendarService.createEventForTask(assignedUser, task).catch(err => {
+                console.error('Failed to sync google calendar event in background', err);
+            });
+        }
+
+        return task;
     }
 
     static async getTasks(filters?: { status?: string; assignedToId?: string }): Promise<Task[]> {

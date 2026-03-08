@@ -1,14 +1,19 @@
 import { User } from '@prisma/client';
-import { verifyGoogleToken } from '../utils/googleAuth';
+import { firebaseAdmin } from '../integrations/firebase';
 import { generateToken } from '../utils/jwt';
 import { prisma } from '../models/prisma';
 
 export class AuthService {
-    static async loginWithGoogle(idToken: string): Promise<{ user: User; token: string }> {
-        const payload = await verifyGoogleToken(idToken);
+    static async loginWithGoogle(idToken: string, googleAccessToken?: string, googleRefreshToken?: string): Promise<{ user: User; token: string }> {
+        let payload;
+        try {
+            payload = await firebaseAdmin.auth().verifyIdToken(idToken);
+        } catch (error) {
+            throw new Error('Invalid Firebase ID token');
+        }
 
         if (!payload || !payload.email) {
-            throw new Error('Invalid Google token payload');
+            throw new Error('Invalid Firebase token payload');
         }
 
         let user = await prisma.user.findUnique({
@@ -21,15 +26,21 @@ export class AuthService {
                 data: {
                     email: payload.email,
                     name: payload.name || 'Unknown User',
-                    googleId: payload.sub,
+                    googleId: payload.uid, // the user's firebase UID
                     role: 'FACULTY',
+                    googleAccessToken: googleAccessToken || null,
+                    googleRefreshToken: googleRefreshToken || null,
                 },
             });
-        } else if (!user.googleId) {
-            // Link Google account to existing user by email
+        } else {
+            // Update the user's google ID and access token
             user = await prisma.user.update({
                 where: { id: user.id },
-                data: { googleId: payload.sub },
+                data: {
+                    googleId: payload.uid,
+                    googleAccessToken: googleAccessToken || user.googleAccessToken,
+                    ...(googleRefreshToken ? { googleRefreshToken } : {}) // Only update if new one is provided
+                },
             });
         }
 

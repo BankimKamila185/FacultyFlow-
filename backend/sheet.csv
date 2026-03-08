@@ -1,0 +1,128 @@
+,SUB EVENTS,To Do,Start Date (MM/DD/YYYY),End date (MM/DD/YYYY),Status,Task Completion Date ,Number of Days Required,Delay,Why Delay Happen Remarks,To Do Responsible team,Responsible Person 1 Email Id,Responsible Person 2 Email Id,Responsible Person 3 Email Id,Responsible Person 4 Email Id,Responsible Person 5 Email Id,BU Head Person Email Id,Operations Person Email Id Layer 1,Operations Person Email Id Layer 2
+Sprint 1 ,Faculty Allocation,Academic Administration Team Mail has to go to BU Head /  HOD for Faculty allocation,12/9/2025,12/10/2025,Completed,12/10/2025,1,-86,There was no delay ,Academic Administration ,meetd@itm.edu,harshitad@itm.edu,jasminet@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Faculty Allocation in Google Sheet,12/10/2025,12/24/2025,Completed,12/12/2025,14,-72,There was no delay ,HOD + BU Head,Aartip@itm.edu,Kalpanas@itm.edu,Swapnilw@itm.edu,aasmab@letsupgrade.in,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Validation of Faculty Allocation ,12/26/2025,12/27/2025,Completed,12/26/2025,1,-69,There was no delay ,Academic Administration + HOD + BU Head,jasminet@itm.edu,Aartip@itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Course Management,Course Creation in ERP,12/9/2025,12/15/2025,Completed,12/11/2025,6,-81,There was no delay ,ERP Team ,cnvsupport@itm.edu,harshalp@itm.edu,jasminet@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Course Code validation,12/15/2025,12/17/2025,Completed,12/17/2025,2,-79,There was no delay ,Academics + CNV Team +  Registrar General ,Academics@itm.edu,cnvsupport@itm.edu,jshilpa@itm.edu,jasminet@itm.edu,aartip@itm.edu,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Course Mapping in CNV,12/19/2025,12/24/2025,Completed,12/18/2025,5,-72,There was no delay ,Coordinator + Academic Administration ,harshitad@itm.edu,meetd@itm.edu,hardikk@itm.edu,jasminet@itm.edu,aartip@itm.edu,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Subject allotment to faculty in CNV,12/26/2025,12/28/2025,Completed,12/26/2025,2,-68,There was no delay ,Coordinator + Academic Administration ,techfaculty@itm.edu,jasminet@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Session plan upload by faculty,12/31/2025,1/3/2026,Completed,1/3/2026,3,-62,There was no delay ,Faculty + HOD + BU Head,techfaculty@itm.edu,Aartip@itm.edu,kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Session plan Approval,1/4/2026,1/4/2026,Completed,1/2/2026,0,-61,There was no delay , HOD + BU Head,Aartip@itm.edu,kalpanas@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Time table upload in ERP,1/4/2026,1/5/2026,Completed,1/2/2026,1,-60,There was no delay ,Coordinator + Academic Administration ,techfaculty@itm.edu,jasminet@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Batch Creation planning in ERP,12/15/2025,12/30/2025,Completed,12/18/2025,15,-66,There was no delay ,Coordinator + Academic Administration ,meetd@itm.edu,harshitad@itm.edu,jasminet@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Semester teaching start date & End Date,1/5/2026,6/27/2026,Started,,173,113,,BU Head +HOD + Academic Administartion,jasminet@itm.edu,aartip@itm.edu,Swapnilw@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Semester teaching start date & End Date (Sprint 1),1/5/2026,3/22/2026,Started,,76,16,,BU Head +HOD + Academic Administartion,meetd@itm.edu,harshitad@itm.edu,jasminet@itm.edu,aartip@itm.edu,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Time Table Preparation,Time Table Preparation in excel,12/24/2025,1/2/2026,Completed,1/2/2026,9,-63,There was no delay ,Academic Administration + Coordinator + BU Head + HOD,meetd@itm.edu,harshitad@itm.edu,jasminet@itm.edu,aartip@itm.edu,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Time Table Validation in excel,1/2/2026,1/2/2026,Completed,1/2/2026,0,-63,There was no delay ,Academic Administration + Coordinator + BU Head + HOD,meetd@itm.edu,harshitad@itm.edu,jasminet@itm.edu,aartip@itm.edu,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Time Table Approved in excel,1/2/2026,1/2/2026,Completed,1/2/2026,0,-63,There was no delay ,Academic Administration + Coordinator + BU Head + HOD,meetd@itm.edu,harshitad@itm.edu,jasminet@itm.edu,aartip@itm.edu,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Teaching Resources,Preparation of Syllabus as per NAAC Format,11/15/2025,12/30/2025,Completed,12/30/2025,45,-66,There was no delay ,HOD + BU Head + Faculty  ,aartip@itm.edu,Kalpanas@itm.edu,Techfaculty@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,"Teaching material(E-notes,PPT) - Upload in LISA",12/31/2025,1/4/2026,Completed,1/4/2026,4,-61,There was no delay ,Faculty+HOD,Techfaculty@itm.edu,aartip@itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Attendance Management,Student attendancee (Weekly Check),Weekly Check (Every Saturday),Weekly Check (Every Saturday),Started,,#VALUE!,#VALUE!,,HOD + Faculty ,Techfaculty@itm.edu,aartip@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Student Attendance review-I (AC to HOD),Weekly Check (Every Saturday),Weekly Check (Every Saturday),,,#VALUE!,#VALUE!,,HOD + Faculty ,Techfaculty@itm.edu,aartip@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Student Attendance review-II,3/11/2026,3/12/2026,,,1,6,,Academic Coordinator + HOD,Techfaculty@itm.edu,aartip@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,No of Dropout students check,3/10/2026,3/10/2026,,,0,4,,Academic coordinator + HOD + BU Head + Operations,Techfaculty@itm.edu,aartip@itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Session of faculty feedback(Turn-I),1/19/2026,1/25/2026,,,6,-40,,HOD + BU Head ,aartip@itm.edu,Kalpanas@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Faculty Feedback and Review,Faculty Feedback review,1/27/2026,1/30/2026,,,3,-35,,HOD + BU Head ,aartip@itm.edu,Kalpanas@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Course Coverage sheet (Weekly),2/2/2026,2/7/2026,,,5,-27,,HOD + BU Head ,aartip@itm.edu,Kalpanas@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Action Taken Record taken by HOD,1/31/2026,2/2/2026,,,2,-32,,HOD + BU Head ,aartip@itm.edu,Kalpanas@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+Internal Continous Assessment,Sprint 1 Exam ,Schema Preparation,12/15/2025,12/25/2025,Completed,12/15/2025,10,-71,,Faculty + HOD + BU Head,Techfaculty@itm.edu,aartip@itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Final Approval for Schema,12/27/2025,1/26/2026,Completed,1/20/2026,30,-39,,Registrar General + HOD + BU Head + Operations,jshilpa@itm.edu,aartip@itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Schema to be shared with Audit & Verification team,12/27/2025,1/26/2026,Completed,01/15/2026,30,-39,,Registrar General + HOD + BU Head + Operations,jshilpa@itm.edu,aartip@itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Assement Conduct Date,3/14/2026,3/22/2026,,,8,16,,HOD + BU Head + Faculty + Coordinator,aartip@itm.edu,techfaculty.itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Sprint 1 Exam ,Assessment closing date,3/23/2026,3/30/2026,,,7,24,,HOD + BU Head + Faculty + Coordinator,aartip@itm.edu,techfaculty.itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Internal exam declaration (Sprint 1),Internal marks to be declared,3/25/2026,3/27/2026,,,2,21,,Examination department+HOD's + Faculty,aartip@itm.edu,techfaculty.itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Internal exam _CNV Activity(Sprint 1 ),Final Internal Marks Upload in CNV as per schema,4/1/2026,4/4/2026,,,3,29,,Examination department+HOD's +CNV + Coordinator,cnvsupport@itm.edu,techfaculty.itm.edu,Kalpanas@itm.edu,aartip@itm.edu,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+ Assessment,Exam Day prep (Sprint 1),Circular To be created,2/16/2026,2/20/2026,,,4,-14,,Examination Dept,Examination@isu.ac.in,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Exam circular to be shared to the students,2/20/2026,2/20/2026,,,0,-14,,Examination department + HOD + BU Head,Examination@isu.ac.in,Kalpanas@itm.edu,aartip@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Request sent to paper setter for submission of exam paper with answer key (Faculty Members),2/15/2026,2/25/2026,,,10,-9,,HOD +BU Head + Coordinator ,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Request sent to paper setter for submission of exam paper with answer key (Shilpa Ma'am team),2/26/2026,3/5/2026,,,7,-1,,Examination Dept,,,,,,,,
+,,No Dues process to be started by [ official notification to complete fee payment & Attendance],3/2/2026,3/5/2026,,,3,-1,,Examination Dept+Registrar office,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,List of all students attending the exam to be shared with Audit & verification team.,3/5/2026,3/9/2026,,,4,3,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Exam Time table to be created,2/23/2026,2/27/2026,,,4,-7,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,NDC verified by SFS,3/7/2026,3/9/2026,,,2,3,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Final List of Eligible students for Examination (to be Published),3/9/2026,3/10/2026,,,1,4,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Pooling Students in CNV for Examination,NA,NA,,,#VALUE!,#VALUE!,,ERP coordinator,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Exam time table to be sent to the students,3/1/2026,3/2/2026,,,1,-4,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Submission of All exam paper to Exam Dept with Answer Key,3/5/2026,3/5/2026,,,0,-1,,Faculty,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Seating arrangements to be done by the local team,2/23/2026,2/27/2026,,,4,-7,,Examination department & admin,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Invigilators to be finalised along with their cost.,2/23/2026,2/27/2026,,,4,-7,,Examination department,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Format of the question paper to be verified by Audit & Verification team and send It back to the respective campus.,3/5/2026,3/5/2026,,,0,-1,,Audit & Verification team,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Format of attendance sheet to be shared by Audit & Verification team,3/5/2026,3/5/2026,,,0,-1,,Audit & Verification team,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Answer book arrangements to be done by Audit & Verification team’s team,2/23/2026,2/27/2026,,,4,-7,,Audit & Verification team,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Stationary,2/23/2026,2/27/2026,,,4,-7,,Examination department,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Attendance sheet checking,3/6/2026,3/10/2026,,,4,4,,Examination department,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Invigilation duty Chart,3/6/2026,3/10/2026,,,4,4,,Examination department,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Examination duration,1 hr (Min),3 hr (Max),,,#VALUE!,#VALUE!,,,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Evaluation and tabulation of the answer sheet.,3/23/2026,3/26/2026,,,3,20,,Joint Registrar+ Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Award sheet to be submitted to the examination department.,3/27/2026,3/30/2026,,,3,24,,,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,"Marks entry to be done by the local team within 5 days post
+ receiving the scores.",3/27/2026,4/2/2026,,,6,27,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Scores Audit,NA,NA,,,#VALUE!,#VALUE!,,Audit & Verification team,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Condonation of marks ,4/4/2026,4/4/2026,,,,,,,,,,,,,,
+,,Results to be declared by the campus.,4/6/2026,4/6/2026,,,0,31,,Examination department,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Revaluation / Retotalling  Application Deadline,4/7/2026,4/10/2026,,,3,35,,Examination department,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Inform Audit & verification team on nos of students eligible for Re evaulation,4/11/2026,4/13/2026,,,2,38,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Result moderation date,4/13/2026,4/18/2026,,,5,43,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+Sprint 2,Faculty Allocation,Academic Administration Team Mail has to go to BU Head /  HOD for Faculty allocation,2/16/2026,2/17/2026,,,1,-17,,Academic Administration ,meetd@itm.edu,harshitad@itm.edu,jasminet@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Faculty Allocation in Google Sheet,2/16/2026,2/26/2026,,,10,-8,,HOD + BU Head,Aartip@itm.edu,Kalpanas@itm.edu,Swapnilw@itm.edu,aasmab@letsupgrade.in,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Validation of Faculty Allocation ,2/26/2026,2/27/2026,,,1,-7,,Academic Administration + HOD + BU Head,jasminet@itm.edu,Aartip@itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Course Management,Course Creation in ERP,2/16/2026,2/23/2026,,,7,-11,,ERP Team ,cnvsupport@itm.edu,harshalp@itm.edu,jasminet@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Course Code validation,2/25/2026,2/26/2026,,,1,-8,,Academics + CNV Team +  Registrar General ,Academics@itm.edu,cnvsupport@itm.edu,jshilpa@itm.edu,jasminet@itm.edu,aartip@itm.edu,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Course Mapping in CNV,3/4/2026,3/6/2026,,,2,0,,Coordinator + Academic Administration ,harshitad@itm.edu,meetd@itm.edu,hardikk@itm.edu,jasminet@itm.edu,aartip@itm.edu,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Subject allotment to faculty in CNV,2/27/2026,2/28/2026,,,1,-6,,Coordinator + Academic Administration ,techfaculty@itm.edu,jasminet@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Session plan upload by faculty,3/2/2026,3/5/2026,,,3,-1,,Faculty + HOD + BU Head,techfaculty@itm.edu,Aartip@itm.edu,kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Session plan Approval,3/6/2026,3/6/2026,,,0,0,, HOD + BU Head,Aartip@itm.edu,kalpanas@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Time table upload in ERP,3/21/2026,3/23/2026,,,2,17,,Coordinator + Academic Administration ,techfaculty@itm.edu,jasminet@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Semester teaching start date & End Date (Sprint 2),3/23/2026,6/19/2026,,,88,105,,BU Head +HOD + Academic Administartion,meetd@itm.edu,harshitad@itm.edu,jasminet@itm.edu,aartip@itm.edu,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Time Table Preparation,Time Table Preparation in excel,3/19/2026,3/20/2026,,,1,14,,Academic Administration + Coordinator + BU Head + HOD,meetd@itm.edu,harshitad@itm.edu,jasminet@itm.edu,aartip@itm.edu,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Time Table Validation in excel,3/21/2026,3/21/2026,,,0,15,,Academic Administration + Coordinator + BU Head + HOD,meetd@itm.edu,harshitad@itm.edu,jasminet@itm.edu,aartip@itm.edu,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Time Table Approved in excel,3/21/2026,3/21/2026,,,0,15,,Academic Administration + Coordinator + BU Head + HOD,meetd@itm.edu,harshitad@itm.edu,jasminet@itm.edu,aartip@itm.edu,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Teaching Resources,Preparation of Syllabus as per NAAC Format,2/16/2026,2/26/2026,,,10,-8,,HOD + BU Head + Faculty  ,aartip@itm.edu,Kalpanas@itm.edu,Techfaculty@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,"Teaching material(E-notes,PPT) - Upload in LISA",2/27/2026,3/5/2026,,,6,-1,,Faculty+HOD,Techfaculty@itm.edu,aartip@itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Attendance Management,Student attendancee (Weekly Check),Weekly Check (Every Saturday),Weekly Check (Every Saturday),,,#VALUE!,#VALUE!,,HOD + Faculty ,Techfaculty@itm.edu,aartip@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Student Attendance review-I (AC to HOD),Weekly Check (Every Saturday),Weekly Check (Every Saturday),,,#VALUE!,#VALUE!,,HOD + Faculty ,Techfaculty@itm.edu,aartip@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Student Attendance review-II,6/2/2026,6/6/2026,,,4,92,,Academic Coordinator + HOD,Techfaculty@itm.edu,aartip@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,No of Dropout students check,6/7/2026,6/10/2026,,,3,96,,Academic coordinator + HOD + BU Head + Operations,Techfaculty@itm.edu,aartip@itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Session of faculty feedback(Turn-I),4/30/2026,5/5/2026,,,5,60,,HOD + BU Head ,aartip@itm.edu,Kalpanas@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Faculty Feedback and Review,Faculty Feedback review,5/6/2026,5/11/2026,,,5,66,,HOD + BU Head ,aartip@itm.edu,Kalpanas@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Course Coverage sheet (Weekly),5/13/2026,5/18/2026,,,5,73,,HOD + BU Head ,aartip@itm.edu,Kalpanas@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Action Taken Record taken by HOD,5/12/2026,5/18/2026,,,6,73,,HOD + BU Head ,aartip@itm.edu,Kalpanas@itm.edu,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+Internal Continous Assessment,Sprint 2 Exam ,Schema Preparation,2/16/2026,2/26/2026,,,10,-8,,Faculty + HOD + BU Head,Techfaculty@itm.edu,aartip@itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Final Approval for Schema,2/27/2026,3/27/2026,,,28,21,,Registrar General + HOD + BU Head ,jshilpa@itm.edu,aartip@itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Schema to be shared with Audit & Verification team,2/27/2026,3/27/2026,,,28,21,,Registrar General + HOD + BU Head + Operations,jshilpa@itm.edu,aartip@itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Assement Conduct Date,6/20/2026,6/27/2026,,,7,113,,HOD + BU Head + Faculty + Coordinator,aartip@itm.edu,techfaculty.itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Sprint 2 Exam ,Assessment closing date,6/29/2026,7/7/2026,,,8,123,,HOD + BU Head + Faculty + Coordinator,aartip@itm.edu,techfaculty.itm.edu,Kalpanas@itm.edu,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Internal exam declaration (Sprint 2),Internal marks to be declared,6/25/2026,6/27/2026,,,2,113,,Examination department+HOD's + Faculty,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,Internal exam _CNV Activity(Sprint 2 ),Final Internal Marks Upload in CNV as per schema,6/27/2026,6/30/2026,,,3,116,,Examination department+HOD's + Faculty,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+ Assessment,Exam Day prep (Sprint 2),Circular To be created,2/16/2026,2/20/2026,,,4,-14,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Exam circular to be shared to the students,2/21/2026,2/21/2026,,,0,-13,,Examination department,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Request sent to paper setter for submission of exam paper with answer key (Faculty Members),4/15/2026,4/25/2026,,,10,50,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Request sent to paper setter for submission of exam paper with answer key (Shilpa Ma'am team),4/27/2026,5/5/2026,,,8,60,,Examination Dept+Registrar office,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,No Dues process to be started by [ official notification to complete fee payment & Attendance],3/2/2026,3/5/2026,,,3,-1,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,List of all students attending the exam to be shared with Audit & verification team.,3/5/2026,3/9/2026,,,4,3,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Exam Time table to be created,2/23/2026,2/27/2026,,,4,-7,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,NDC verified by SFS,3/7/2026,3/9/2026,,,2,3,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Final List of Eligible students for Examination (to be Published),3/9/2026,3/10/2026,,,1,4,,ERP coordinator,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Pooling Students in CNV for Examination,NA,NA,,,#VALUE!,#VALUE!,,Examination department,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Exam time table to be sent to the students,5/5/2026,5/11/2026,,,6,66,,Examination Dept,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Submission of All exam paper to Exam Dept with Answer Key,5/12/2026,5/14/2026,,,2,69,,Faculty,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Seating arrangements to be done by the local team,5/18/2026,5/22/2026,,,4,77,,Examination department & admin,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Invigilators to be finalised along with their cost.,6/1/2026,6/8/2026,,,7,94,,Examination department,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Format of the question paper to be verified by Audit & Verification team and send It back to the respective campus.,6/9/2026,6/16/2026,,,7,102,,Audit & Verification team,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Format of attendance sheet to be shared by Audit & Verification team,6/16/2026,6/16/2026,,,0,102,,Audit & Verification team,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Answer book arrangements to be done by Audit & Verification team’s team,2/23/2026,2/27/2026,,,4,-7,,Audit & Verification team,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Stationary,2/23/2026,2/27/2026,,,4,-7,,Examination department,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Attendance sheet checking,3/6/2026,3/10/2026,,,4,4,,Examination department,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Invigilation duty Chart,3/6/2026,3/10/2026,,,4,4,,Examination department,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Examination duration,1 hr (Min),3 hr (Max),,,#VALUE!,#VALUE!,,Examination department,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Evaluation and tabulation of the answer sheet.,6/29/2026,7/1/2026,,,2,117,,,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Award sheet to be submitted to the examination department.,7/1/2026,7/1/2026,,,0,117,,,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,"Marks entry to be done by the local team within 5 days post
+ receiving the scores.",7/2/2026,3/6/2026,,,-118,0,,,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Scores Audit,7/9/2026,7/10/2026,,,1,126,,,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Condonation of marks ,7/15/2026,7/15/2026,,,,,,,,,,,,,,
+,,Results to be declared by the campus.,7/16/2026,7/17/2026,,,1,133,,,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Revaluation / RetotallingApplication Deadline,7/17/2026,7/23/2026,,,6,139,,,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Inform Audit & verification team on nos of students eligible for Re evaulation,7/24/2026,7/27/2026,,,3,143,,,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Result moderation date,7/28/2026,7/31/2026,,,3,147,,,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
+,,Semester Marksheet distribution (45th day),8/17/2026,8/17/2026,,,0,164,,,,,,,,kalpanas@itm.edu,sejalb@itm.edu,pallavim@itm.edu
