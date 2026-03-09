@@ -8,6 +8,7 @@ export default function Workflow() {
   const [rawTasks, setRawTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [suggestion, setSuggestion] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const handleAISuggest = async () => {
     try {
         const token = localStorage.getItem('token');
@@ -32,9 +33,12 @@ export default function Workflow() {
   const userEmail = (currentUser?.email || devUser?.email || '').toLowerCase();
 
   // 4 Columns matching the provided image
+  // 4 Columns matching the status transitions
   const stages = [
     { id: 'PENDING', title: 'To Do', dot: 'var(--kb-todo-dot)', tint: 'var(--col-todo-bg)' },
     { id: 'IN_PROGRESS', title: 'In Progress', dot: 'var(--kb-progress-dot)', tint: 'var(--col-progress-bg)' },
+    { id: 'IN_REVIEW', title: 'In Review', dot: '#8B5CF6', tint: 'rgba(139, 92, 246, 0.05)' },
+    { id: 'OVERDUE', title: 'Overdue', dot: '#EF4444', tint: 'rgba(239, 68, 68, 0.05)' },
     { id: 'COMPLETED', title: 'Completed', dot: 'var(--kb-done-dot)', tint: 'var(--col-done-bg)' },
   ];
 
@@ -56,16 +60,20 @@ export default function Workflow() {
               .map(r => r.email);
 
             const priorities = ['Medium', 'High', 'Low'];
-            const priority = priorities[idx % 3];
+            // Stable hash for semi-random priority that doesn't change on sort
+            const hash = task.id.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+            const priority = priorities[hash % 3];
             
             let progress = 0;
             if (task.status === 'COMPLETED') progress = 100;
             else if (task.status === 'IN_REVIEW') progress = 85;
             else if (task.status === 'IN_PROGRESS') progress = 50;
 
+            const displayTitle = task.sprintName ? `${task.title} (${task.sprintName})` : task.title;
+
             return {
               id: task.id,
-              title: task.title,
+              title: displayTitle,
               faculty: task.assignedTo?.name || 'Unassigned',
               stage: task.status || 'PENDING',
               deadline: task.deadline ? new Date(task.deadline).toLocaleDateString() : null,
@@ -74,8 +82,8 @@ export default function Workflow() {
               description: task.description || '',
               isMe,
               others,
-              files: (idx % 4) + 1,
-              comments: (idx % 6) + 2
+              files: (hash % 4) + 1,
+              comments: (hash % 6) + 2
             };
           });
           setRawTasks(mappedTasks);
@@ -165,7 +173,12 @@ export default function Workflow() {
         </button>
         <div className="wf-search-wrap">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" placeholder="Search task" />
+          <input 
+            type="text" 
+            placeholder="Search task" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
         <div className="wf-filter-group">
           <span>Sort by:</span>
@@ -186,7 +199,13 @@ export default function Workflow() {
 
       <div className="kanban-board">
         {stages.map(stage => {
-          const colTasks = rawTasks.filter(t => t.stage === stage.id);
+          const colTasks = rawTasks.filter(t => {
+            const matchesStage = t.stage === stage.id;
+            const matchesSearch = t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                 t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                 t.faculty.toLowerCase().includes(searchTerm.toLowerCase());
+            return matchesStage && matchesSearch;
+          });
           return (
             <div className="kanban-column" key={stage.id} style={{ background: stage.tint }}>
               <div className="kanban-col-header">

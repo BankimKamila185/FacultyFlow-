@@ -73,7 +73,7 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
             prisma.user.findMany()
         ]);
 
-        const workflowMap = new Map(existingWorkflows.map(wf => [wf.type.trim(), wf]));
+        const workflowMap = new Map(existingWorkflows.map(wf => [`${wf.type.trim()}|${(wf.sprintName || '').trim()}`, wf]));
         const userMap = new Map(existingUsers.map(u => [u.email.toLowerCase(), u]));
 
         console.log(`Initial lookups: ${existingWorkflows.length} workflows, ${existingUsers.length} users.`);
@@ -142,22 +142,19 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
             let workflowId: string | null = null;
             if (subEvent && subEvent.trim()) {
                 const trimmedType = subEvent.trim();
-                let workflow = workflowMap.get(trimmedType);
+                const trimmedSprint = (currentSprintName || '').trim();
+                const wfKey = `${trimmedType}|${trimmedSprint}`;
+                
+                let workflow = workflowMap.get(wfKey);
                 if (!workflow) {
                     workflow = await prisma.workflow.create({
                         data: {
                             type: trimmedType,
-                            sprintName: currentSprintName || null,
+                            sprintName: trimmedSprint || null,
                             status: status === 'COMPLETED' ? 'COMPLETED' : 'ACTIVE'
                         }
                     });
-                    workflowMap.set(trimmedType, workflow);
-                } else if (currentSprintName && workflow.sprintName !== currentSprintName) {
-                    workflow = await prisma.workflow.update({
-                        where: { id: workflow.id },
-                        data: { sprintName: currentSprintName }
-                    });
-                    workflowMap.set(trimmedType, workflow);
+                    workflowMap.set(wfKey, workflow);
                 }
                 workflowId = workflow.id;
             }
