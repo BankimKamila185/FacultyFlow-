@@ -188,7 +188,7 @@ function LoginPage({ onLogin }) {
 
 
 export default function App() {
-  const { currentUser, devUser, backendToken, setDevUser, setBackendToken, loginWithGoogle, logout } = useAuth();
+  const { currentUser, devUser, backendUser, backendToken, setDevUser, setBackendToken, loginWithGoogle, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [theme, setTheme] = useState('light');
@@ -238,8 +238,12 @@ export default function App() {
       new Notification(title, { body, icon: '/vite.svg' });
     }
   };
-
-  const effectiveUser = currentUser || devUser;
+  
+  // The effective user is prioritized: 
+  // 1. Explicitly chosen Mock Context (devUser)
+  // 2. Firebase Authenticated User (currentUser)
+  // 3. Backend Authenticated User (backendUser - from dev-login or cookie session)
+  const effectiveUser = devUser || currentUser || backendUser;
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -312,7 +316,13 @@ export default function App() {
     setTheme(t => t === 'light' ? 'dark' : 'light');
   };
 
-  if (!effectiveUser || (!backendToken && !devUser)) return <LoginPage onLogin={loginWithGoogle} />;
+  // ── Auth Guard ──
+  // We show LoginPage if:
+  // - No backend token (cookie) is detected
+  // - AND we haven't resolved a backendUser OR devUser OR currentUser
+  if (!backendToken && !effectiveUser) {
+    return <LoginPage onLogin={loginWithGoogle} />;
+  }
 
   const navItems = [
     'Dashboard',

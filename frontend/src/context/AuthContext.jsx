@@ -14,6 +14,7 @@ export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [backendToken, setBackendToken] = useState(null);
+    const [backendUser, setBackendUser] = useState(null);
     const [devUser, setDevUser] = useState(null);
 
     const isLoggingIn = React.useRef(false);
@@ -27,6 +28,7 @@ export function AuthProvider({ children }) {
                 const data = await res.json();
                 if (data.success) {
                     setBackendToken(true); // Indication that we have a cookie session
+                    setBackendUser(data.data.user);
                     setDevUser(data.data.user.devModeContext ? JSON.parse(data.data.user.devModeContext) : null);
                 }
             }
@@ -55,6 +57,7 @@ export function AuthProvider({ children }) {
                     const data = await res.json();
                     if (data.success) {
                         setBackendToken(true);
+                        setBackendUser(data.data.user);
                         setDevUser(data.data.user.devModeContext ? JSON.parse(data.data.user.devModeContext) : null);
                     }
                 } catch (err) {
@@ -89,6 +92,7 @@ export function AuthProvider({ children }) {
             const data = await res.json();
             if (data.success) {
                 setBackendToken(true);
+                setBackendUser(data.data.user);
                 setDevUser(data.data.user.devModeContext ? JSON.parse(data.data.user.devModeContext) : null);
             } else {
                 throw new Error(data.error);
@@ -112,6 +116,7 @@ export function AuthProvider({ children }) {
             const data = await res.json();
             if (data.success) {
                 setBackendToken(true);
+                setBackendUser(data.data.user);
                 setDevUser(data.data.user.devModeContext ? JSON.parse(data.data.user.devModeContext) : null);
                 return data.data.user;
             } else {
@@ -145,12 +150,14 @@ export function AuthProvider({ children }) {
             console.error("Logout error", err);
         }
         setBackendToken(null);
+        setBackendUser(null);
         setDevUser(null);
     };
 
     const value = {
         currentUser,
         devUser,
+        backendUser,
         backendToken,
         setDevUser: updateDevUser,
         loginWithGoogle,
