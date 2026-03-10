@@ -91,7 +91,77 @@ export default function UserProfile({ theme, toggleTheme }) {
     };
 
     if (loading) return <div className="profile-loading">Loading Intel...</div>;
-    if (!profile) return <div className="profile-error">User not found in registry.</div>;
+
+    const renderHeader = (userData) => (
+        <div className="profile-header">
+            <div className="profile-avatar-wrapper">
+                <img 
+                    src={userData?.photoUrl || getAvatarUrl(userData?.email)} 
+                    alt="Profile" 
+                    className="profile-main-avatar"
+                />
+            </div>
+            
+            <div className="profile-identity">
+                <h1 className="profile-name">{userData?.name || userData?.email?.split('@')[0]}</h1>
+                <div className="profile-tags">
+                    <span className="profile-role-tag">{userData?.role || 'Guest'}</span>
+                    {userData?.department && (
+                        <span className="profile-dept-tag">{userData?.department}</span>
+                    )}
+                </div>
+                <p className="profile-email-sub">{userData?.email}</p>
+            </div>
+
+            <div className="profile-actions">
+                <div className="profile-main-actions">
+                    <button className="btn-theme-toggle-profile" onClick={toggleTheme} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
+                        {theme === 'light' ? (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                            </svg>
+                        ) : (
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="5" />
+                                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+                            </svg>
+                        )}
+                    </button>
+                    {userData && <button className="btn-edit-profile" onClick={() => setIsEditing(true)}>Edit Profile</button>}
+                    <button className="btn-logout-profile" onClick={handleLogout}>Logout</button>
+                </div>
+            </div>
+        </div>
+    );
+
+    if (!profile) {
+        return (
+            <div className="user-profile-container">
+                <div className="profile-glass-card">
+                    {renderHeader({
+                        email: currentUser?.email,
+                        name: currentUser?.displayName || currentUser?.email?.split('@')[0],
+                        photoUrl: currentUser?.photoURL
+                    })}
+                    <div className="profile-error-state" style={{ 
+                        padding: '4rem 2rem', 
+                        textAlign: 'center',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        borderRadius: '24px',
+                        marginTop: '2rem',
+                        border: '1px dashed var(--border-color)'
+                    }}>
+                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🛡️</div>
+                        <h2 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>User not found in registry</h2>
+                        <p style={{ color: 'var(--text-dim)', maxWidth: '400px', margin: '0 auto' }}>
+                            Your account hasn't been fully registered in the faculty database. 
+                            Please contact the administrator or try logging out and back in with an authorized account.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     const { user, stats, tasksBySprint } = profile;
 
@@ -99,45 +169,7 @@ export default function UserProfile({ theme, toggleTheme }) {
         <div className="user-profile-container">
             <div className="profile-glass-card">
                 {/* View Mode Header */}
-                <div className="profile-header">
-                    <div className="profile-avatar-wrapper">
-                        <img 
-                            src={user.photoUrl || getAvatarUrl(user.email)} 
-                            alt="Profile" 
-                            className="profile-main-avatar"
-                        />
-                    </div>
-                    
-                    <div className="profile-identity">
-                        <h1 className="profile-name">{user.name}</h1>
-                        <div className="profile-tags">
-                            <span className="profile-role-tag">{user.role}</span>
-                            {user.department && (
-                                <span className="profile-dept-tag">{user.department}</span>
-                            )}
-                        </div>
-                        <p className="profile-email-sub">{user.email}</p>
-                    </div>
-
-                    <div className="profile-actions">
-                        <div className="profile-main-actions">
-                            <button className="btn-theme-toggle-profile" onClick={toggleTheme} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
-                                {theme === 'light' ? (
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                                    </svg>
-                                ) : (
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <circle cx="12" cy="12" r="5" />
-                                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-                                    </svg>
-                                )}
-                            </button>
-                            <button className="btn-edit-profile" onClick={() => setIsEditing(true)}>Edit Profile</button>
-                            <button className="btn-logout-profile" onClick={handleLogout}>Logout</button>
-                        </div>
-                    </div>
-                </div>
+                {renderHeader(user)}
 
                 {message && <div className={`profile-message ${message.includes('success') ? 'success' : 'error'}`}>{message}</div>}
 

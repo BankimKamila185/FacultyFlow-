@@ -311,7 +311,48 @@ body {
   border-radius: var(--radius);
   cursor: pointer;
   transition: var(--transition);
-  overflow: hidden;
+  position: relative;
+}
+
+.sidebar-logout-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  margin-left: 0.25rem;
+  flex-shrink: 0;
+}
+
+.sidebar-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  transform: scale(1.1);
+}
+
+.collapsed-logout {
+  width: 100%;
+  aspect-ratio: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  margin-bottom: 0.5rem;
+}
+
+.collapsed-logout:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .user-profile:hover {
