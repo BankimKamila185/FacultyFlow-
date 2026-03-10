@@ -15,6 +15,7 @@ import Inbox from './components/Inbox';
 import Settings from './components/Settings';
 import UserProfile from './components/UserProfile';
 import StudentQueries from './components/StudentQueries';
+import PromptEmail from './components/PromptEmail';
 
 // ─── Nav Icons ───────────────────────────────────────────────────────────────
 const icons = {
@@ -82,6 +83,13 @@ const icons = {
   'Student Queries': (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+  'AI Mail': (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4h16v16H4z" />
+      <polyline points="4 6 12 13 20 6" />
+      <path d="M9 18h6" />
     </svg>
   ),
 };
@@ -330,6 +338,7 @@ export default function App() {
     'My Task',
     'Inbox',
     'Student Queries',
+    'AI Mail',
     'Workspace',
     'Calendar',
     'Settings'
@@ -560,6 +569,7 @@ export default function App() {
           {activeTab === 'Projects' && <Workflow />}
           {activeTab === 'Inbox' && <Inbox />}
           {activeTab === 'Student Queries' && <StudentQueries />}
+          {activeTab === 'AI Mail' && <PromptEmail />}
           {activeTab === 'Workspace' && <GoogleTools />}
           {activeTab === 'Calendar' && <GoogleCalendar />}
 
