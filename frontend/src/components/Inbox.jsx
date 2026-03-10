@@ -26,7 +26,7 @@ function getCategoryColor(cat) {
     return CATEGORIES.find(c => c.key === cat)?.color || '#94a3b8';
 }
 
-export default function Inbox() {
+export default function Inbox({ setActiveTab }) {
     const [emails, setEmails] = useState([]);
     const [counts, setCounts] = useState({});
     const [activeCategory, setActiveCategory] = useState('all');
@@ -107,20 +107,40 @@ export default function Inbox() {
                         Emails categorized by AI — {totalUnread > 0 ? `${totalUnread} unread` : 'all caught up ✓'}
                     </p>
                 </div>
-                <button
-                    onClick={syncGmail}
-                    disabled={syncing}
-                    style={{
-                        background: syncing ? 'var(--bg-card)' : 'var(--primary)',
-                        color: syncing ? 'var(--text-muted)' : 'white',
-                        border: 'none', borderRadius: '6px',
-                        padding: '0.45rem 1rem', fontWeight: 700, fontSize: '0.78rem',
-                        cursor: syncing ? 'not-allowed' : 'pointer',
-                        display: 'flex', alignItems: 'center', gap: '0.4rem'
-                    }}
-                >
-                    {syncing ? '⟳ Syncing...' : '⟳ Sync Gmail'}
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                        onClick={syncGmail}
+                        disabled={syncing}
+                        style={{
+                            background: syncing ? 'var(--bg-card)' : 'var(--primary)',
+                            color: syncing ? 'var(--text-muted)' : 'white',
+                            border: 'none', borderRadius: '6px',
+                            padding: '0.45rem 1rem', fontWeight: 700, fontSize: '0.78rem',
+                            cursor: syncing ? 'not-allowed' : 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '0.4rem'
+                        }}
+                    >
+                        {syncing ? '⟳ Syncing...' : '⟳ Sync Gmail'}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab && setActiveTab('AI Mail')}
+                        style={{
+                            background: 'var(--bg-card)',
+                            color: 'var(--primary)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '6px',
+                            padding: '0.45rem 1rem',
+                            fontWeight: 700,
+                            fontSize: '0.78rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem'
+                        }}
+                    >
+                        ✨ AI Mail
+                    </button>
+                </div>
             </div>
 
             {syncMsg && (

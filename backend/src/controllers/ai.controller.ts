@@ -152,19 +152,24 @@ Instruction: "${prompt}"
 Current time: ${now}
 
 Task:
-1. Write a professional academic email draft.
+1. Write a concise, professional academic email draft.
 2. Identify intended Audience EXACTLY as one of: "STUDENT", "HOD", "FACULTY", or null.
    - Mention of students/exams/classes/learners -> "STUDENT"
    - Mention of HOD/Heads/Chairs -> "HOD"
    - Mention of teachers/professors/colleagues -> "FACULTY"
 3. Extract specific send time if mentioned (ISO string).
 
-Return ONLY JSON:
+CRITICAL FORMAT RULES:
+- Return ONLY a single JSON object.
+- Do NOT include Markdown, backticks, or code fences.
+- Do NOT include any explanatory text before or after the JSON.
+
+The JSON shape MUST be exactly:
 {
-  "subject": "...",
-  "body": "...",
-  "audience": "STUDENT | HOD | FACULTY | null",
-  "scheduledAt": "ISO string | null"
+  "subject": "string - clear email subject line",
+  "body": "string - full email body, with line breaks as needed",
+  "audience": "STUDENT" | "HOD" | "FACULTY" | null,
+  "scheduledAt": "ISO-8601 datetime string or null"
 }`;
 
             const raw = await callGemini(aiPrompt);
@@ -177,13 +182,13 @@ Return ONLY JSON:
 
             if (raw) {
                 try {
-                    // Robust JSON extraction
+                    // Robust JSON extraction (handles both plain JSON and fenced JSON)
                     let jsonStr = raw;
                     const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
                     if (jsonMatch) {
                         jsonStr = jsonMatch[1];
                     }
-                    
+
                     const parsed = JSON.parse(jsonStr.trim());
                     subject = parsed.subject || subject;
                     bodyText = parsed.body || bodyText;
@@ -191,11 +196,28 @@ Return ONLY JSON:
                     detectedAudience = parsed.audience || null;
                 } catch (e) {
                     console.error('Draft JSON parse failed:', e, 'Raw was:', raw);
+
+                    // Graceful degradation: if JSON parsing fails but Gemini
+                    // still produced a reasonable email-looking text, use it.
+                    if (!bodyText && typeof raw === 'string') {
+                        // Try to extract a "Subject:" line if present
+                        const subjectMatch = raw.match(/^[Ss]ubject\s*:\s*(.+)$/m);
+                        if (subjectMatch) {
+                            subject = subjectMatch[1].trim() || subject;
+                            const withoutSubjectLine = raw.replace(subjectMatch[0], '').trim();
+                            bodyText = withoutSubjectLine || bodyText;
+                        } else if (raw.trim().length > 40) {
+                            // Treat the whole thing as the body if it's long enough
+                            bodyText = raw.trim();
+                        }
+                    }
                 }
             }
 
-            // Fallback body if parsing fails or AI is empty
-            if (!bodyText) bodyText = `Regarding your request: ${prompt}`;
+            // Final ultra-safe fallback body if everything else fails
+            if (!bodyText) {
+                bodyText = `Regarding your request: ${prompt}`;
+            }
 
             // Smarter recipient lookup
             const roleToLookup = audienceRole || detectedAudience;

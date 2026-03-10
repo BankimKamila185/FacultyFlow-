@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ApprovalRequests from './ApprovalRequests';
 import FacultyCommunication from './FacultyCommunication';
 
-export default function Gmail() {
+export default function Gmail({ setActiveTab }) {
     const [activeSegment, setActiveSegment] = useState('Approvals');
 
     const segments = ['Approvals', 'Faculty'];
@@ -33,13 +33,22 @@ export default function Gmail() {
                         </div>
                     ))}
                 </div>
-                <button 
-                    className="btn-primary" 
-                    style={{ background: '#EA4335' }}
-                    onClick={() => window.open('https://mail.google.com/mail/u/0/#inbox?compose=new', '_blank')}
-                >
-                    + Compose
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button 
+                        className="btn-primary" 
+                        style={{ background: '#EA4335' }}
+                        onClick={() => window.open('https://mail.google.com/mail/u/0/#inbox', '_blank')}
+                    >
+                        Open Gmail
+                    </button>
+                    <button
+                        className="btn-primary"
+                        style={{ background: 'var(--primary)' }}
+                        onClick={() => setActiveTab && setActiveTab('AI Mail')}
+                    >
+                        ✨ AI Mail Compose
+                    </button>
+                </div>
             </div>
 
             <div className="gmail-content">

@@ -573,9 +573,9 @@ export default function App() {
           {activeTab === 'My Task' && <Tasks />}
           {isAdmin && activeTab === 'Admin Panel' && <AdminDashboard setActiveTab={setActiveTab} />}
           {activeTab === 'Projects' && <Workflow />}
-          {activeTab === 'Inbox' && <Inbox />}
+          {activeTab === 'Inbox' && <Inbox setActiveTab={setActiveTab} />}
           {activeTab === 'AI Mail' && <PromptEmail />}
-          {activeTab === 'Workspace' && <GoogleTools />}
+          {activeTab === 'Workspace' && <GoogleTools setActiveTab={setActiveTab} />}
           {activeTab === 'Calendar' && <GoogleCalendar />}
           {activeTab === 'Notifications' && <Notifications />}
           {activeTab === 'Settings' && <Settings />}

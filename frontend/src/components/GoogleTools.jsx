@@ -4,7 +4,7 @@ import GoogleSheets from './GoogleSheets';
 import GoogleForms from './GoogleForms';
 import Gmail from './Gmail';
 
-export default function GoogleTools() {
+export default function GoogleTools({ setActiveTab }) {
     const [activeTool, setActiveTool] = useState('Docs');
 
     return (
@@ -25,7 +25,7 @@ export default function GoogleTools() {
                 {activeTool === 'Docs' && <GoogleDocs />}
                 {activeTool === 'Sheets' && <GoogleSheets />}
                 {activeTool === 'Forms' && <GoogleForms />}
-                {activeTool === 'Gmail' && <Gmail />}
+                {activeTool === 'Gmail' && <Gmail setActiveTab={setActiveTab} />}
             </div>
         </div>
     );
