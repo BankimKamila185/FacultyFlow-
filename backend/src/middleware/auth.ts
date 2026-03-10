@@ -1,11 +1,19 @@
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { verifyToken } from '../utils/jwt';
 import { prisma } from '../models/prisma';
 
-export interface AuthenticatedRequest extends Request {
-    user?: any;
+export interface TokenPayload {
+    id: string;
+    email: string;
+    role: string;
+    [key: string]: any;
 }
 
-export function authenticate(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export interface AuthenticatedRequest extends Request {
+    user?: TokenPayload;
+}
+
+export const authenticate: RequestHandler = async (req: any, res, next) => {
     const authHeader = req.headers.authorization;
     let token = null;
 
@@ -20,7 +28,7 @@ export function authenticate(req: AuthenticatedRequest, res: Response, next: Nex
     }
 
     try {
-        const decoded = verifyToken(token);
+        const decoded = verifyToken(token) as TokenPayload;
         
         // Perspective Switching: Check if this user has a dev context set in DB
         const dbUser = await prisma.user.findUnique({
