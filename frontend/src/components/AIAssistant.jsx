@@ -274,6 +274,17 @@ export default function AIAssistant() {
         );
     };
 
+    /* ─── CHAT bubble (General Inquiry) ────────────────────────────────────── */
+    const ChatBubble = ({ msg }) => {
+        return (
+            <div className="ai-chat-bubble">
+                <div className="ai-chat-content">
+                    {msg.data?.response}
+                </div>
+            </div>
+        );
+    };
+
     /* ─── Main render ─────────────────────────────────────────────────────── */
     return (
         <div className="ai-assistant-container">
@@ -338,6 +349,21 @@ export default function AIAssistant() {
                     font-size: 0.95rem;
                     line-height: 1.55;
                     box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+                }
+
+                /* ── AI Chat bubble (General) ── */
+                .ai-chat-bubble {
+                    align-self: flex-start;
+                    max-width: 85%;
+                    background: rgba(255, 255, 255, 0.04);
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    color: #D1D1D1;
+                    padding: 1rem 1.5rem;
+                    border-radius: 4px 22px 22px 22px;
+                    font-size: 1rem;
+                    line-height: 1.6;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                    animation: fadeSlideUp 0.3s ease;
                 }
 
                 /* ── AI card shell ── */
@@ -580,6 +606,8 @@ export default function AIAssistant() {
                             <EmailCard msg={msg} />
                         ) : msg.data?.type === 'SUMMARY' ? (
                             <SummaryCard msg={msg} />
+                        ) : msg.data?.type === 'CHAT' ? (
+                            <ChatBubble msg={msg} />
                         ) : (
                             <ArtifactCard msg={msg} />
                         )}

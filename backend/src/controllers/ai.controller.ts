@@ -448,6 +448,7 @@ Classify their intent as EXACTLY one of these types:
 - DOC: They want to create a document, notice, letter, report, announcement (as a Google Doc)
 - FORM: They want to create a form, survey, quiz, feedback form, questionnaire
 - SUMMARY: They want to summarize, read, check, list or review their emails/inbox
+- CHAT: They are asking a general question, greeting you, or want an explanation/answer that doesn't require creating an artifact.
 
 Also extract:
 - audience: "STUDENT" | "HOD" | "FACULTY" | "ALL" | null (who to send/share with)
@@ -455,15 +456,17 @@ Also extract:
 - scheduledAt: ISO-8601 datetime if a specific send time is mentioned, else null
 - subject: (for EMAIL only) the email subject
 - body: (for EMAIL only) the full professional email body
+- response: (for CHAT only) a direct, helpful answer to their question
 
 Respond ONLY with a single JSON object (no markdown, no backticks):
 {
-  "type": "EMAIL|SHEET|DOC|FORM|SUMMARY",
+  "type": "EMAIL|SHEET|DOC|FORM|SUMMARY|CHAT",
   "audience": "STUDENT|HOD|FACULTY|ALL|null",
   "title": "string",
   "scheduledAt": "ISO-8601 or null",
   "subject": "string or null",
-  "body": "string or null"
+  "body": "string or null",
+  "response": "string or null"
 }`;
 
             let type = 'EMAIL';
@@ -472,6 +475,7 @@ Respond ONLY with a single JSON object (no markdown, no backticks):
             let scheduledAt: string | null = null;
             let subject: string | null = null;
             let body: string | null = null;
+            let chatResponse: string | null = null;
 
             if (GEMINI_API_KEY) {
                 const raw = await callGemini(classifyPrompt);
@@ -487,6 +491,7 @@ Respond ONLY with a single JSON object (no markdown, no backticks):
                     scheduledAt = parsed.scheduledAt || null;
                     subject = parsed.subject || null;
                     body = parsed.body || null;
+                    chatResponse = parsed.response || null;
                 } catch (e) {
                     console.error('[universalChat] JSON parse failed:', e);
                     // Fall back to email
@@ -503,6 +508,9 @@ Respond ONLY with a single JSON object (no markdown, no backticks):
                     type = 'DOC';
                 } else if (lower.match(/\bsummar\b|\binbox\b|\bread mail\b|\bcheck mail\b/)) {
                     type = 'SUMMARY';
+                } else if (lower.match(/\bwhat is\b|\bhow to\b|\bwho is\b|\bdate\b|\btime\b|\bhello\b|\bhi\b/)) {
+                    type = 'CHAT';
+                    chatResponse = `Today is ${new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
                 } else {
                     type = 'EMAIL';
                 }
@@ -526,6 +534,17 @@ Respond ONLY with a single JSON object (no markdown, no backticks):
             }
 
             // ── Step 3: Handle by type ─────────────────────────────────────────
+
+            // ── CHAT ───────────────────────────────────────────────────────────
+            if (type === 'CHAT') {
+                return res.status(200).json({
+                    success: true,
+                    data: {
+                        type: 'CHAT',
+                        response: chatResponse || "I'm not sure how to answer that, but I can help you draft emails or create documents."
+                    }
+                });
+            }
 
             // ── EMAIL ──────────────────────────────────────────────────────────
             if (type === 'EMAIL') {
