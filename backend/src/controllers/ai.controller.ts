@@ -2,10 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../models/prisma';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { GmailIntegration } from '../integrations/gmail';
+import { DriveIntegration } from '../integrations/drive';
+import { SheetsIntegration } from '../integrations/sheets';
 import fetch from 'node-fetch';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 async function callGemini(prompt: string): Promise<string> {
     if (!GEMINI_API_KEY) {
@@ -404,5 +406,308 @@ ${userName}`;
     static async sendPromptEmail(req: Request, res: Response, next: NextFunction) {
         // Keeping for backward compatibility, redirecting to draft logic basically
         return AIController.draftPromptEmail(req, res, next);
+    }
+
+    /**
+     * POST /api/ai/chat
+     * 
+     * Universal AI chat endpoint. Accepts a natural-language prompt,
+     * uses Gemini to detect intent, and routes to the right handler.
+     * 
+     * Body: { prompt: string }
+     * Returns: { type: 'EMAIL'|'SHEET'|'DOC'|'FORM'|'SUMMARY', data: {...} }
+     */
+    static async universalChat(req: Request, res: Response, next: NextFunction) {
+        try {
+            const user = (req as any).user;
+            const userEmail = user?.email;
+            const userName = user?.name || userEmail?.split('@')[0] || 'Faculty Member';
+
+            if (!userEmail) {
+                res.status(401).json({ success: false, message: 'Not authenticated' });
+                return;
+            }
+
+            const { prompt } = req.body;
+            if (!prompt || typeof prompt !== 'string') {
+                res.status(400).json({ success: false, message: 'prompt is required' });
+                return;
+            }
+
+            const now = new Date().toISOString();
+
+            // ── Step 1: Classify intent with Gemini ────────────────────────────
+            const classifyPrompt = `You are an AI assistant for a university faculty management app.
+A faculty member typed this instruction: "${prompt}"
+Current time: ${now}
+
+Classify their intent as EXACTLY one of these types:
+- EMAIL: They want to send, compose, draft, remind, or notify someone via email
+- SHEET: They want to create a spreadsheet, Excel, Google Sheet, table, list of data
+- DOC: They want to create a document, notice, letter, report, announcement (as a Google Doc)
+- FORM: They want to create a form, survey, quiz, feedback form, questionnaire
+- SUMMARY: They want to summarize, read, check, list or review their emails/inbox
+
+Also extract:
+- audience: "STUDENT" | "HOD" | "FACULTY" | "ALL" | null (who to send/share with)
+- title: a short descriptive title for the artifact (sheet name, doc name, etc.)
+- scheduledAt: ISO-8601 datetime if a specific send time is mentioned, else null
+- subject: (for EMAIL only) the email subject
+- body: (for EMAIL only) the full professional email body
+
+Respond ONLY with a single JSON object (no markdown, no backticks):
+{
+  "type": "EMAIL|SHEET|DOC|FORM|SUMMARY",
+  "audience": "STUDENT|HOD|FACULTY|ALL|null",
+  "title": "string",
+  "scheduledAt": "ISO-8601 or null",
+  "subject": "string or null",
+  "body": "string or null"
+}`;
+
+            let type = 'EMAIL';
+            let audience: string | null = null;
+            let title = 'Untitled';
+            let scheduledAt: string | null = null;
+            let subject: string | null = null;
+            let body: string | null = null;
+
+            if (GEMINI_API_KEY) {
+                const raw = await callGemini(classifyPrompt);
+                console.log('[universalChat] Gemini raw:', raw);
+                try {
+                    let jsonStr = raw;
+                    const match = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+                    if (match) jsonStr = match[1];
+                    const parsed = JSON.parse(jsonStr.trim());
+                    type = parsed.type || 'EMAIL';
+                    audience = parsed.audience || null;
+                    title = parsed.title || 'Untitled';
+                    scheduledAt = parsed.scheduledAt || null;
+                    subject = parsed.subject || null;
+                    body = parsed.body || null;
+                } catch (e) {
+                    console.error('[universalChat] JSON parse failed:', e);
+                    // Fall back to email
+                    type = 'EMAIL';
+                }
+            } else {
+                // Offline fallback: keyword-based classification
+                const lower = prompt.toLowerCase();
+                if (lower.match(/\bform\b|\bsurvey\b|\bquiz\b|\bfeedback\b|\bquestionnaire\b/)) {
+                    type = 'FORM';
+                } else if (lower.match(/\bsheet\b|\bexcel\b|\bspreadsheet\b|\btable\b|\battendance\b|\bmarks\b|\bgrade\b/)) {
+                    type = 'SHEET';
+                } else if (lower.match(/\bdoc\b|\bdocument\b|\bnotice\b|\bletter\b|\breport\b|\bannouncement\b/)) {
+                    type = 'DOC';
+                } else if (lower.match(/\bsummar\b|\binbox\b|\bread mail\b|\bcheck mail\b/)) {
+                    type = 'SUMMARY';
+                } else {
+                    type = 'EMAIL';
+                }
+
+                if (lower.match(/\bstudent\b|\bclass\b|\bexam\b/)) audience = 'STUDENT';
+                else if (lower.match(/\bhod\b|\bhead\b/)) audience = 'HOD';
+                else if (lower.match(/\bfaculty\b|\bprofessor\b|\bstaff\b/)) audience = 'FACULTY';
+
+                title = prompt.split(/[.?!\n]/)[0].trim().slice(0, 60) || 'Untitled';
+            }
+
+            // ── Step 2: Look up recipients ─────────────────────────────────────
+            let recipients: string[] = [];
+            const roleToLookup = audience && audience !== 'ALL' ? audience : null;
+            if (roleToLookup) {
+                const users = await prisma.user.findMany({ where: { role: roleToLookup } });
+                recipients = users.map(u => u.email).filter(e => e && e !== userEmail);
+            } else if (audience === 'ALL') {
+                const users = await prisma.user.findMany();
+                recipients = users.map(u => u.email).filter(e => e && e !== userEmail);
+            }
+
+            // ── Step 3: Handle by type ─────────────────────────────────────────
+
+            // ── EMAIL ──────────────────────────────────────────────────────────
+            if (type === 'EMAIL') {
+                if (!GEMINI_API_KEY || !subject || !body) {
+                    // Offline fallback body
+                    const greeting = audience === 'STUDENT' ? 'Dear Students,' : audience === 'HOD' ? 'Dear Head of Department,' : audience === 'FACULTY' ? 'Dear Faculty,' : 'Dear All,';
+                    if (!subject) subject = title || 'Faculty Announcement';
+                    if (!body) {
+                        body = `${greeting}\n\n${prompt.charAt(0).toUpperCase() + prompt.slice(1)}\n\nThank you.\n\nBest regards,\n${userName}`;
+                    }
+                }
+
+                return res.status(200).json({
+                    success: true,
+                    data: {
+                        type: 'EMAIL',
+                        subject,
+                        body,
+                        recipients,
+                        scheduledAt,
+                        detectedAudience: audience
+                    }
+                });
+            }
+
+            // ── SHEET ──────────────────────────────────────────────────────────
+            if (type === 'SHEET') {
+                try {
+                    const sheet = await SheetsIntegration.createSheet(userEmail, title);
+                    const sheetId = sheet.spreadsheetId;
+                    const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+
+                    // Optionally share with students/faculty
+                    if (sheetId && recipients.length > 0) {
+                        try {
+                            await DriveIntegration.shareFile(userEmail, sheetId, recipients, 'reader');
+                        } catch (shareErr) {
+                            console.warn('[universalChat] Sheet share failed (non-fatal):', shareErr);
+                        }
+                    }
+
+                    return res.status(200).json({
+                        success: true,
+                        data: {
+                            type: 'SHEET',
+                            title,
+                            url: sheetUrl,
+                            sheetId,
+                            recipients,
+                            detectedAudience: audience
+                        }
+                    });
+                } catch (e: any) {
+                    console.error('[universalChat] Sheet creation failed:', e);
+                    return res.status(200).json({
+                        success: true,
+                        data: {
+                            type: 'SHEET',
+                            title,
+                            url: null,
+                            error: 'Could not create sheet — Google Sheets API may not be authorized. Connect your Google account in Settings.',
+                            recipients,
+                            detectedAudience: audience
+                        }
+                    });
+                }
+            }
+
+            // ── DOC ────────────────────────────────────────────────────────────
+            if (type === 'DOC') {
+                try {
+                    const doc = await DriveIntegration.createDoc(userEmail, title);
+                    const docId = doc.documentId;
+                    const docUrl = `https://docs.google.com/document/d/${docId}/edit`;
+
+                    if (docId && recipients.length > 0) {
+                        try {
+                            await DriveIntegration.shareFile(userEmail, docId, recipients, 'reader');
+                        } catch (shareErr) {
+                            console.warn('[universalChat] Doc share failed (non-fatal):', shareErr);
+                        }
+                    }
+
+                    return res.status(200).json({
+                        success: true,
+                        data: {
+                            type: 'DOC',
+                            title,
+                            url: docUrl,
+                            docId,
+                            recipients,
+                            detectedAudience: audience
+                        }
+                    });
+                } catch (e: any) {
+                    console.error('[universalChat] Doc creation failed:', e);
+                    return res.status(200).json({
+                        success: true,
+                        data: {
+                            type: 'DOC',
+                            title,
+                            url: null,
+                            error: 'Could not create document — Google Docs API may not be authorized. Connect your Google account in Settings.',
+                            recipients,
+                            detectedAudience: audience
+                        }
+                    });
+                }
+            }
+
+            // ── FORM ────────────────────────────────────────────────────────────
+            if (type === 'FORM') {
+                try {
+                    // Google Forms API via Drive (create a form as a special doc)
+                    const auth = await (await import('../integrations/google/oauth')).getGoogleOAuthClient(userEmail);
+                    const forms = (await import('googleapis')).google.forms({ version: 'v1', auth });
+                    const formRes = await forms.forms.create({
+                        requestBody: { info: { title } }
+                    });
+                    const formId = formRes.data.formId;
+                    const responderUri = formRes.data.responderUri || `https://forms.google.com/d/${formId}/viewform`;
+
+                    return res.status(200).json({
+                        success: true,
+                        data: {
+                            type: 'FORM',
+                            title,
+                            url: responderUri,
+                            editUrl: `https://docs.google.com/forms/d/${formId}/edit`,
+                            formId,
+                            recipients,
+                            detectedAudience: audience
+                        }
+                    });
+                } catch (e: any) {
+                    console.error('[universalChat] Form creation failed:', e);
+                    return res.status(200).json({
+                        success: true,
+                        data: {
+                            type: 'FORM',
+                            title,
+                            url: null,
+                            error: 'Could not create form — Google Forms API may not be authorized. Connect your Google account in Settings.',
+                            recipients,
+                            detectedAudience: audience
+                        }
+                    });
+                }
+            }
+
+            // ── SUMMARY ────────────────────────────────────────────────────────
+            if (type === 'SUMMARY') {
+                // Get scheduled emails from our DB as a proxy summary (Gmail read requires scopes that may be limited)
+                const recentScheduled = await prisma.scheduledEmail.findMany({
+                    where: { userId: user.id },
+                    orderBy: { scheduledAt: 'desc' },
+                    take: 5
+                });
+
+                let summaryText = '';
+                if (recentScheduled.length === 0) {
+                    summaryText = 'You have no recently scheduled or sent emails in FacultyFlow.';
+                } else {
+                    summaryText = `Here are your ${recentScheduled.length} most recent emails:\n\n` +
+                        recentScheduled.map((e, i) =>
+                            `${i + 1}. **${e.subject}** → ${e.toEmails.join(', ')}\n   Status: ${e.status} | Scheduled: ${new Date(e.scheduledAt).toLocaleString()}`
+                        ).join('\n\n');
+                }
+
+                return res.status(200).json({
+                    success: true,
+                    data: {
+                        type: 'SUMMARY',
+                        summary: summaryText
+                    }
+                });
+            }
+
+            // Fallback
+            res.status(400).json({ success: false, message: 'Unable to classify intent.' });
+
+        } catch (error) {
+            next(error);
+        }
     }
 }

@@ -12,7 +12,7 @@ import GoogleCalendar from './components/GoogleCalendar';
 import GoogleTools from './components/GoogleTools';
 import Notifications from './components/Notifications';
 import UserProfile from './components/UserProfile';
-import PromptEmail from './components/PromptEmail';
+import AIAssistant from './components/AIAssistant';
 import AdminDashboard from './components/AdminDashboard';
 import Inbox from './components/Inbox';
 import StudentQueries from './components/StudentQueries';
@@ -574,7 +574,7 @@ export default function App() {
           {isAdmin && activeTab === 'Admin Panel' && <AdminDashboard setActiveTab={setActiveTab} />}
           {activeTab === 'Projects' && <Workflow />}
           {activeTab === 'Inbox' && <Inbox setActiveTab={setActiveTab} />}
-          {activeTab === 'AI Mail' && <PromptEmail />}
+          {activeTab === 'AI Mail' && <AIAssistant />}
           {activeTab === 'Workspace' && <GoogleTools setActiveTab={setActiveTab} />}
           {activeTab === 'Calendar' && <GoogleCalendar />}
           {activeTab === 'Notifications' && <Notifications />}

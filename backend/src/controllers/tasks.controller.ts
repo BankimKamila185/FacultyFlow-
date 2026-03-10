@@ -249,3 +249,42 @@ export const askReason = async (req: Request, res: Response): Promise<void> => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+/**
+ * POST /api/tasks/nudge-all
+ * Allows an admin/HOD to request reasons for ALL overdue tasks at once.
+ */
+export const batchAskReason = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const currentUser = (req as any).user;
+        if (currentUser?.role !== 'ADMIN' && currentUser?.role !== 'HOD') {
+            res.status(403).json({ success: false, message: 'Forbidden: Admin access required.' });
+            return;
+        }
+
+        const overdueTasks = await prisma.task.findMany({
+            where: { status: 'OVERDUE' },
+            select: { id: true, title: true, assignedToId: true }
+        });
+
+        if (overdueTasks.length === 0) {
+            res.json({ success: true, message: 'No overdue tasks to nudge.' });
+            return;
+        }
+
+        // Create notifications for all assigned users of overdue tasks
+        const notificationData = overdueTasks.map(task => ({
+            userId: task.assignedToId,
+            type: 'REASON_REQUEST',
+            message: `Admin requested a reason for the delay on task: "${task.title}". Please add a remark.`
+        }));
+
+        await prisma.notification.createMany({
+            data: notificationData
+        });
+
+        res.json({ success: true, message: `Successfully nudged ${overdueTasks.length} tasks.` });
+    } catch (error: any) {
+        console.error('Error in batch nudge:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
