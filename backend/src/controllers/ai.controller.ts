@@ -509,9 +509,24 @@ Respond ONLY with a single JSON object (no markdown, no backticks):
                     type = 'DOC';
                 } else if (lower.match(/\bsummar\b|\binbox\b|\bread mail\b|\bcheck mail\b/)) {
                     type = 'SUMMARY';
-                } else if (lower.match(/\bwhat is\b|\bhow to\b|\bwho is\b|\bdate\b|\btime\b|\bhello\b|\bhi\b/)) {
+                } else if (lower.match(/\bwhat is\b|\bhow to\b|\bwho is\b|\bwho i am\b|\bwho am i\b|\bdate\b|\btime\b|\bhello\b|\bhi\b|\bname\b|\bhelp\b|\btell me\b|\bexplain\b/)) {
                     type = 'CHAT';
-                    chatResponse = `Today is ${new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
+                    // Contextual offline responses
+                    if (lower.match(/\bdate\b|\btoday\b|\bday\b/)) {
+                        chatResponse = `Today is ${new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
+                    } else if (lower.match(/\btime\b/)) {
+                        chatResponse = `The current time is ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`;
+                    } else if (lower.match(/\bwho i am\b|\bwho am i\b/)) {
+                        chatResponse = `You are ${userName} (${userEmail}). Welcome to FacultyFlow!`;
+                    } else if (lower.match(/\byour name\b|\bwho are you\b/)) {
+                        chatResponse = `I'm FacultyFlow AI Assistant — your universal chatbot for emails, tasks, documents, and more!`;
+                    } else if (lower.match(/\bwho is hod\b|\bwho is head\b/)) {
+                        chatResponse = `I don't have HOD information offline. Please try again when the AI service is available.`;
+                    } else if (lower.match(/\bhello\b|\bhi\b|\bhey\b/)) {
+                        chatResponse = `Hello ${userName}! 👋 How can I help you today? I can draft emails, create documents, manage tasks, and more.`;
+                    } else {
+                        chatResponse = `That's a great question! I need the AI service to give you a proper answer. Try again in a moment.`;
+                    }
                 } else if (lower.match(/\btask\b|\bremind\b|\btodo\b|\bdo this\b/)) {
                     type = 'TASK';
                     title = prompt.replace(/\btask\b|\bremind me to\b|\btodo\b/gi, '').trim();
@@ -541,11 +556,32 @@ Respond ONLY with a single JSON object (no markdown, no backticks):
 
             // ── CHAT ───────────────────────────────────────────────────────────
             if (type === 'CHAT') {
+                // If Gemini is available and chatResponse is missing/weak, make a dedicated call
+                if (GEMINI_API_KEY && (!chatResponse || chatResponse.length < 20)) {
+                    try {
+                        const chatPrompt = `You are FacultyFlow AI Assistant — a friendly, helpful chatbot for university faculty members.
+The faculty member "${userName}" asked: "${prompt}"
+Current date/time: ${now}
+
+Give a direct, helpful, conversational answer. Keep it concise (2-4 sentences max).
+If they ask who they are, tell them: "You are ${userName} (${userEmail})."
+If they ask who you are, introduce yourself as FacultyFlow AI.
+If they ask about HOD or admin, check if you know from context, otherwise say you can look it up.
+Do NOT return JSON. Just return the plain text answer.`;
+                        const chatRaw = await callGemini(chatPrompt);
+                        if (chatRaw && chatRaw.trim().length > 5) {
+                            chatResponse = chatRaw.trim();
+                        }
+                    } catch (chatErr) {
+                        console.error('[universalChat] Chat call failed:', chatErr);
+                    }
+                }
+
                 return res.status(200).json({
                     success: true,
                     data: {
                         type: 'CHAT',
-                        response: chatResponse || "I'm not sure how to answer that, but I can help you draft emails or create documents."
+                        response: chatResponse || "I'm your FacultyFlow AI assistant! I can help you draft emails, create documents, manage tasks, and much more. What would you like to do?"
                     }
                 });
             }
