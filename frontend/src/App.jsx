@@ -14,6 +14,9 @@ import Notifications from './components/Notifications';
 import UserProfile from './components/UserProfile';
 import PromptEmail from './components/PromptEmail';
 import AdminDashboard from './components/AdminDashboard';
+import Inbox from './components/Inbox';
+import StudentQueries from './components/StudentQueries';
+import Settings from './components/Settings';
 
 // ─── Nav Icons ───────────────────────────────────────────────────────────────
 const icons = {
@@ -75,12 +78,6 @@ const icons = {
       <path d="M4 4h16v16H4z" />
       <path d="M4 9h16" />
       <path d="M9 4v16" />
-    </svg>
-  ),
-
-  'Student Queries': (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   ),
   'AI Mail': (
@@ -345,7 +342,6 @@ export default function App() {
     'My Task',
     'Inbox',
     ...(isAdmin ? ['Admin Panel'] : []),
-    'Student Queries',
     'AI Mail',
     'Workspace',
     'Calendar',
@@ -578,7 +574,6 @@ export default function App() {
           {isAdmin && activeTab === 'Admin Panel' && <AdminDashboard setActiveTab={setActiveTab} />}
           {activeTab === 'Projects' && <Workflow />}
           {activeTab === 'Inbox' && <Inbox />}
-          {activeTab === 'Student Queries' && <StudentQueries />}
           {activeTab === 'AI Mail' && <PromptEmail />}
           {activeTab === 'Workspace' && <GoogleTools />}
           {activeTab === 'Calendar' && <GoogleCalendar />}

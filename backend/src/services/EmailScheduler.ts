@@ -3,9 +3,19 @@ import { GmailIntegration } from '../integrations/gmail';
 
 export class EmailScheduler {
     static start() {
-        console.log('--- Email Scheduler Started ---');
-        // Check every minute
-        setInterval(() => this.processPendingEmails(), 60000);
+        console.log('--- Email Scheduler Initialization ---');
+        
+        // Initial check and then start interval
+        this.processPendingEmails()
+            .then(() => {
+                console.log('[Scheduler] Initial check completed. Starting interval...');
+                setInterval(() => this.processPendingEmails(), 60000);
+            })
+            .catch(err => {
+                console.error('[Scheduler] Initialization failed:', err.message);
+                // Still start interval, maybe DB comes back online
+                setInterval(() => this.processPendingEmails(), 60000);
+            });
     }
 
     private static async processPendingEmails() {
@@ -44,8 +54,12 @@ export class EmailScheduler {
                     });
                 }
             }
-        } catch (error) {
-            console.error('[Scheduler Critical Error]', error);
+        } catch (error: any) {
+            if (error.code === 'P2021') {
+                console.error('[Scheduler] Database table "ScheduledEmail" is missing. Please run migrations/db push.');
+            } else {
+                console.error('[Scheduler Critical Error]', error);
+            }
         }
     }
 }
