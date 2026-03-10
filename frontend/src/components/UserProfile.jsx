@@ -87,8 +87,6 @@ export default function UserProfile({ theme, toggleTheme }) {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('devUser');
         logout();
     };
 

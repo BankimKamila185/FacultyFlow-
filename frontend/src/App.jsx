@@ -199,13 +199,10 @@ function LoginPage({ onLogin, onDevLogin }) {
 
 
 export default function App() {
-  const { currentUser, backendToken, loginWithGoogle, logout } = useAuth();
+  const { currentUser, devUser, backendToken, setDevUser, setBackendToken, loginWithGoogle, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [theme, setTheme] = useState('light');
-  const [devUser, setDevUser] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('devUser') || 'null'); } catch { return null; }
-  });
   const isDesktop = !!window.require; // Detection for Electron
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -332,14 +329,10 @@ export default function App() {
 
   const handleDevLoginSuccess = (user, token) => {
     setDevUser(user);
+    setBackendToken(token); // Ensure backend token is updated in context too
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('devUser');
-    setDevUser(null);
-    logout();
-  };
+  // handleLogout logic is now fully encapsulated in useAuth().logout()
 
   if (!effectiveUser || (!backendToken && !devUser)) return <LoginPage onLogin={loginWithGoogle} onDevLogin={handleDevLoginSuccess} />;
 
