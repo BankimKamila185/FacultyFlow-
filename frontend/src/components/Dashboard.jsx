@@ -66,6 +66,8 @@ export default function Dashboard() {
         completed: metrics?.tasks?.completed || 0
     };
 
+    const unreadInboxCount = inbox.filter(m => !m.isRead).length;
+
     return (
         <div style={{ padding: '0 1rem' }}>
             {/* ─── Page Title ───────────────────────────────────────────── */}
@@ -215,7 +217,11 @@ export default function Dashboard() {
                         <div className="sched-header" style={{ padding: '1rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)' }}>Mail Inbox</h3>
                             <div style={{ display: 'flex', gap: '0.4rem' }}>
-                                <span style={{ cursor: 'pointer', color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 700, background: 'var(--bg-dark)', padding: '0.3rem 0.6rem', borderRadius: '8px' }}>5 New</span>
+                                {unreadInboxCount > 0 && (
+                                    <span style={{ cursor: 'pointer', color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 700, background: 'var(--bg-dark)', padding: '0.3rem 0.6rem', borderRadius: '8px' }}>
+                                        {unreadInboxCount} New
+                                    </span>
+                                )}
                                 <span style={{ cursor: 'pointer', color: 'var(--text-dim)', fontSize: '1.2rem' }}>⋯</span>
                             </div>
                         </div>
