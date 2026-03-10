@@ -17,7 +17,7 @@ async function callGemini(prompt: string): Promise<string> {
 
     const body = {
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 1024 }
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
     };
 
     try {
@@ -152,10 +152,18 @@ export class AIController {
                 }
 
                 // Subject: first sentence or a truncated version of the prompt
-                const firstSentence = normalized.split(/[.?!]/)[0].trim();
-                let subject = firstSentence
-                    ? firstSentence.charAt(0).toUpperCase() + firstSentence.slice(1)
-                    : 'Faculty Announcement';
+                let subject = 'Faculty Announcement';
+                if (lower.indexOf('reminder') !== -1) subject = 'Important Reminder';
+                else if (lower.indexOf('lab') !== -1) subject = 'Lab Session Update';
+                else if (lower.indexOf('exam') !== -1) subject = 'Exam Notification';
+                else if (lower.indexOf('submission') !== -1) subject = 'Deadline Submission';
+                else {
+                    const firstSentence = normalized.split(/[.?!]/)[0].trim();
+                     subject = firstSentence
+                        ? firstSentence.charAt(0).toUpperCase() + firstSentence.slice(1)
+                        : 'Faculty Announcement';
+                }
+
                 if (subject.length > 90) {
                     subject = subject.slice(0, 87).trimEnd() + '...';
                 }
@@ -211,40 +219,33 @@ ${userName}`;
             }
 
             const now = new Date().toISOString();
-            const aiPrompt = `You are a professional university assistant who writes polished, natural emails based on very rough faculty instructions.
+            const aiPrompt = `You are an expert executive assistant at a top-tier university. Your goal is to transform rough, shorthand faculty notes into premium, professional, and warm academic emails.
 
-Instruction from faculty (may be shorthand / broken English):
-"${prompt}"
-
+Instruction from faculty: "${prompt}"
 Current time: ${now}
 
-Your job:
-1. Understand the intention and context. Fix grammar, spelling, and clarity.
-2. Write a concise, professional academic email draft. Use a warm but formal tone.
-3. Create a short, informative subject line (ideally under 80 characters) that summarizes the key action or event.
-4. Infer the intended Audience EXACTLY as one of: "STUDENT", "HOD", "FACULTY", or null.
-   - Mentions of students / exams / classes / learners -> "STUDENT"
-   - Mentions of HOD / Heads / Chairs / management -> "HOD"
-   - Mentions of teachers / professors / colleagues / staff -> "FACULTY"
-5. If the instruction mentions a time like "tomorrow 11am to 1pm" or "on Monday at 2 pm", convert it into a clear human sentence inside the email (e.g. "tomorrow from 11:00 AM to 1:00 PM").
-6. If a specific send time is clearly mentioned (for when the email itself should be sent), set "scheduledAt" to an ISO-8601 datetime string. Otherwise use null.
+Instructions:
+1. REWRITE and EXPAND: Do not simply repeat the raw instruction. Take the core idea and write it as if you were a professional assistant. Fix all grammar and clarity issues.
+2. TONE: Warm, professional, supportive, and clear. Avoid sounding robotic.
+3. SUBJECT LINE: Create an engaging, high-level subject line that summarizes the action. Do NOT just use the raw prompt. (Max 80 chars).
+4. AUDIENCE DETECTION: Detect one of: "STUDENT", "HOD", "FACULTY", or null.
+   - Related to classes, exams, homework, grading -> "STUDENT"
+   - Related to department, management, reporting -> "HOD"
+   - Related to peers, staff meetings, collaboration -> "FACULTY"
+5. TIME CONVERSION: If a time like "tomorrow 9am" is given, write it elegantly (e.g., "tomorrow morning at 9:00 AM").
+6. SCHEDULE: If they say "send this at 5pm", extract that as "scheduledAt".
 
-Style guidelines:
-- Do NOT just repeat the raw instruction as-is. Always rewrite it into natural English.
-- Add a greeting (e.g. "Dear Students,") and a short closing ("Thank you.", "Best regards,").
-- Be specific about what, when, and where if the instruction gives those details.
+Example:
+Input: "remind students lab tomorrow 9am"
+Output Subject: "Reminder: Scheduled Lab Session for Tomorrow at 9:00 AM"
+Output Body: "Dear Students,\n\nI would like to remind everyone about our upcoming lab session scheduled for tomorrow morning at 9:00 AM. Please ensure you have prepared all necessary materials in advance.\n\nThank you.\n\nBest regards,\n[Name]"
 
-Output format (CRITICAL):
-- Return ONLY a single JSON object.
-- Do NOT include Markdown, backticks, or code fences.
-- Do NOT include any explanatory text before or after the JSON.
-
-The JSON shape MUST be exactly:
+JSON format (MANDATORY, NO CODE FENCES):
 {
-  "subject": "string - clear email subject line",
-  "body": "string - full email body, with line breaks as needed",
+  "subject": "Clear, professional subject",
+  "body": "Full, natural email body with greeting and closing",
   "audience": "STUDENT" | "HOD" | "FACULTY" | null,
-  "scheduledAt": "ISO-8601 datetime string or null"
+  "scheduledAt": "ISO-8601 or null"
 }`;
 
             const raw = await callGemini(aiPrompt);
