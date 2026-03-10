@@ -1,9 +1,7 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { google } from 'googleapis';
 import { getGoogleOAuthClient } from '../integrations/google/oauth';
-
-const prisma = new PrismaClient();
+import { prisma } from '../models/prisma';
 
 // --- Gemini AI Categorization ---
 // We call Gemini REST API directly to categorize emails

@@ -9,12 +9,16 @@ export class AnalyticsService {
             ]
         } : {};
 
-        const [pendingTasks, inProgressTasks, inReviewTasks, completedTasks, overdueTasks] = await Promise.all([
+        const [
+            pendingTasks, inProgressTasks, inReviewTasks, completedTasks, overdueTasks,
+            globalTotal
+        ] = await Promise.all([
             prisma.task.count({ where: { ...whereClause, status: 'PENDING' } }),
             prisma.task.count({ where: { ...whereClause, status: 'IN_PROGRESS' } }),
             prisma.task.count({ where: { ...whereClause, status: 'IN_REVIEW' } }),
             prisma.task.count({ where: { ...whereClause, status: 'COMPLETED' } }),
             prisma.task.count({ where: { ...whereClause, status: 'OVERDUE' } }),
+            prisma.task.count(), // Global total across all users
         ]);
 
         const activeWorkflows = await prisma.workflow.count({ where: { status: 'ACTIVE' } });
@@ -27,6 +31,7 @@ export class AnalyticsService {
                 completed: completedTasks,
                 overdue: overdueTasks,
                 total: pendingTasks + inProgressTasks + inReviewTasks + completedTasks + overdueTasks,
+                globalTotal: globalTotal,
             },
             workflows: {
                 active: activeWorkflows,
