@@ -5,16 +5,17 @@ import { GmailIntegration } from '../integrations/gmail';
 import fetch from 'node-fetch';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 async function callGemini(prompt: string): Promise<string> {
     if (!GEMINI_API_KEY) {
+        console.error('GEMINI_API_KEY is missing');
         return '';
     }
 
     const body = {
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 512 }
+        generationConfig: { temperature: 0.1, maxOutputTokens: 1024 }
     };
 
     try {
@@ -24,9 +25,13 @@ async function callGemini(prompt: string): Promise<string> {
             body: JSON.stringify(body)
         });
         const data = await res.json() as any;
+        if (data.error) {
+            console.error('Gemini API Error:', JSON.stringify(data.error, null, 2));
+            return '';
+        }
         return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
     } catch (e) {
-        console.error('Gemini prompt-email error:', e);
+        console.error('Gemini fetch error:', e);
         return '';
     }
 }
@@ -141,34 +146,30 @@ export class AIController {
             }
 
             const now = new Date().toISOString();
-            const aiPrompt = `You are an elite faculty email assistant. 
+            const aiPrompt = `You are a professional university assistant.
 
 Instruction: "${prompt}"
-Current time context: ${now}
+Current time: ${now}
 
 Task:
-1. Write a professional, concise academic email. DO NOT just repeat the instruction. Use a formal tone.
-2. Detect the intended Audience:
-   - If the user mentions students/class/learners, output "STUDENT".
-   - If heads/HOD/chairs, output "HOD".
-   - If faculty/teachers/colleagues, output "FACULTY".
-   - Else if unclear, output null.
-3. Extract any specific send time/date mentioned. Convert to ISO string.
+1. Write a professional academic email draft.
+2. Identify intended Audience EXACTLY as one of: "STUDENT", "HOD", "FACULTY", or null.
+   - Mention of students/exams/classes/learners -> "STUDENT"
+   - Mention of HOD/Heads/Chairs -> "HOD"
+   - Mention of teachers/professors/colleagues -> "FACULTY"
+3. Extract specific send time if mentioned (ISO string).
 
-Output ONLY a JSON object:
+Return ONLY JSON:
 {
   "subject": "...",
   "body": "...",
   "audience": "STUDENT | HOD | FACULTY | null",
-  "scheduledAt": "ISO String | null"
-}
-
-Rules:
-- Subject: Compelling and clear.
-- Body: Professional, well-formatted, under 150 words. No intro like "Sure, here is your email".
-- NO markdown code fences. NO extra text.`;
+  "scheduledAt": "ISO string | null"
+}`;
 
             const raw = await callGemini(aiPrompt);
+            console.log('Gemini Raw Output:', raw);
+
             let subject = 'Faculty Announcement';
             let bodyText = '';
             let scheduledAt: string | null = null;
@@ -176,23 +177,27 @@ Rules:
 
             if (raw) {
                 try {
-                    const cleanJson = raw.replace(/```json|```/g, '').trim();
-                    const parsed = JSON.parse(cleanJson);
+                    // Robust JSON extraction
+                    let jsonStr = raw;
+                    const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+                    if (jsonMatch) {
+                        jsonStr = jsonMatch[1];
+                    }
+                    
+                    const parsed = JSON.parse(jsonStr.trim());
                     subject = parsed.subject || subject;
                     bodyText = parsed.body || bodyText;
                     scheduledAt = parsed.scheduledAt || null;
                     detectedAudience = parsed.audience || null;
                 } catch (e) {
-                    console.warn('Draft Gemini JSON fail', e);
+                    console.error('Draft JSON parse failed:', e, 'Raw was:', raw);
                 }
             }
 
             // Fallback body if parsing fails or AI is empty
-            if (!bodyText) bodyText = `Regarding: ${prompt}`;
+            if (!bodyText) bodyText = `Regarding your request: ${prompt}`;
 
             // Smarter recipient lookup
-            // 1. If audienceRole was passed (override), use it.
-            // 2. Else if AI detected an audience, use it.
             const roleToLookup = audienceRole || detectedAudience;
             if (recipients.length === 0 && roleToLookup) {
                 const users = await prisma.user.findMany({
