@@ -5,8 +5,14 @@ export class AnalyticsController {
     static async getDashboardMetrics(req: Request, res: Response, next: NextFunction) {
         try {
             const user = (req as any).user;
-            const filter = user?.role === 'FACULTY' ? { userId: user.id, email: user.email } : undefined;
+            const isFaculty = user?.role?.toUpperCase() === 'FACULTY';
+            const filter = isFaculty ? { userId: user.id, email: user.email } : undefined;
+            
             const metrics = await AnalyticsService.getDashboardMetrics(filter);
+            
+            // Log for debugging if needed
+            console.log(`[Analytics] Metrics for ${user?.email} (Role: ${user?.role}):`, metrics.tasks.total);
+            
             res.status(200).json({ success: true, data: metrics });
         } catch (error) {
             next(error);

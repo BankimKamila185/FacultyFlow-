@@ -43,7 +43,14 @@ export default function Dashboard() {
             if (allTasksData.success) setTasks(allTasksData.data);
             if (notifData.success) setNotifications(notifData.data);
             if (inboxData.success) setInbox(inboxData.data.slice(0, 5));
-            if (metricsData.success) setMetrics(metricsData.data);
+            if (metricsData.success) {
+                console.log("[Dashboard] Metrics Data:", metricsData.data);
+                setMetrics(metricsData.data);
+            }
+            if (allTasksData.success) {
+                console.log("[Dashboard] All Tasks Length:", allTasksData.data.length);
+                setTasks(allTasksData.data);
+            }
 
         } catch (error) {
             console.error("Dashboard Fetch Error:", error);
@@ -62,6 +69,7 @@ export default function Dashboard() {
     // Accurate metrics from dedicated endpoint
     const stats = {
         total: metrics?.tasks?.total || 0,
+        globalTotal: metrics?.tasks?.globalTotal || 0,
         active: (metrics?.tasks?.inProgress || 0) + (metrics?.tasks?.inReview || 0),
         completed: metrics?.tasks?.completed || 0
     };
@@ -96,7 +104,16 @@ export default function Dashboard() {
             <div className="over-stats" style={{ marginBottom: '1.5rem', gap: '1rem' }}>
                 <div className="over-card">
                     <div>
-                        <div className="over-label">Total Global Load</div>
+                        <div className="over-label">Project Total Tasks</div>
+                        <div className="over-value">{stats.globalTotal}</div>
+                    </div>
+                    <div className="over-icon" style={{ background: 'var(--bg-dark)', color: 'var(--primary)', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    </div>
+                </div>
+                <div className="over-card">
+                    <div>
+                        <div className="over-label">My Assigned Tasks</div>
                         <div className="over-value">{stats.total}</div>
                     </div>
                     <div className="over-icon" style={{ background: 'var(--bg-dark)', color: 'var(--primary)', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>
