@@ -443,6 +443,9 @@ A faculty member typed this instruction: "${prompt}"
 Current time: ${now}
 
 Classify their intent as EXACTLY one of these types:
+- EMAIL: They want to send, compose, draft, remind, or notify someone via email
+- SHEET: They want to create a spreadsheet, Excel, Google Sheet, table, list of data
+- DOC: They want to create a document, notice, letter, report, announcement (as a Google Doc)
 - FORM: They want to create a form, survey, quiz, feedback form, questionnaire
 - SUMMARY: They want to summarize, read, check, list or review their emails/inbox
 - TASK: They want to remind themselves of something, create a personal to-do, or schedule a task/reminder for themselves (no recipient mentioned)
@@ -580,8 +583,37 @@ Respond ONLY with a single JSON object (no markdown, no backticks):
 
             // ── EMAIL ──────────────────────────────────────────────────────────
             if (type === 'EMAIL') {
-                if (!GEMINI_API_KEY || !subject || !body) {
-                    // Offline fallback body
+                // Always re-draft the email with a dedicated Gemini call for quality
+                if (GEMINI_API_KEY) {
+                    try {
+                        const draftPrompt = `You are a professional email writer for a university faculty member named "${userName}".
+The faculty member wants to send an email about: "${prompt}"
+Target audience: ${audience || 'All'}
+
+Write a polished, professional email. Return ONLY a JSON object with these fields:
+- "subject": A clear, descriptive email subject line (NOT the user's raw prompt)
+- "body": The full email body. Start with an appropriate greeting, include well-written content about the topic, and end with a professional sign-off from ${userName}.
+
+Do NOT wrap in markdown. Return raw JSON only:
+{"subject": "...", "body": "..."}`;
+                        const draftRaw = await callGemini(draftPrompt);
+                        try {
+                            let draftJson = draftRaw;
+                            const draftMatch = draftRaw.match(/```(?:json)?\s*([\s\S]*?)```/);
+                            if (draftMatch) draftJson = draftMatch[1];
+                            const drafted = JSON.parse(draftJson.trim());
+                            if (drafted.subject) subject = drafted.subject;
+                            if (drafted.body) body = drafted.body;
+                        } catch (parseErr) {
+                            console.error('[universalChat] Draft parse failed, using initial classification output');
+                        }
+                    } catch (draftErr) {
+                        console.error('[universalChat] Draft call failed:', draftErr);
+                    }
+                }
+
+                // Offline / fallback if still no proper subject/body
+                if (!subject || !body) {
                     const greeting = audience === 'STUDENT' ? 'Dear Students,' : audience === 'HOD' ? 'Dear Head of Department,' : audience === 'FACULTY' ? 'Dear Faculty,' : 'Dear All,';
                     if (!subject) subject = title || 'Faculty Announcement';
                     if (!body) {
