@@ -2,6 +2,7 @@ import { Queue, Worker, Job } from 'bullmq';
 import { redis } from '../utils/redis';
 import winston from 'winston';
 import { prisma } from '../models/prisma';
+import fetch from 'node-fetch';
 
 const logger = winston.createLogger({
     level: 'info',

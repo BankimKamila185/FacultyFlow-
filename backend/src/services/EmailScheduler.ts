@@ -11,7 +11,7 @@ export class EmailScheduler {
     private static async processPendingEmails() {
         try {
             const now = new Date();
-            const pending = await (prisma as any).scheduledEmail.findMany({
+            const pending = await prisma.scheduledEmail.findMany({
                 where: {
                     status: 'PENDING',
                     scheduledAt: { lte: now }
@@ -28,14 +28,14 @@ export class EmailScheduler {
                         await GmailIntegration.sendEmail(email.fromEmail, to, email.subject, email.body);
                     }
                     
-                    await (prisma as any).scheduledEmail.update({
+                    await prisma.scheduledEmail.update({
                         where: { id: email.id },
                         data: { status: 'SENT' }
                     });
                     console.log(`[Scheduler] Successfully sent email ID: ${email.id}`);
                 } catch (err: any) {
                     console.error(`[Scheduler] Failed to send email ID: ${email.id}`, err);
-                    await (prisma as any).scheduledEmail.update({
+                    await prisma.scheduledEmail.update({
                         where: { id: email.id },
                         data: { 
                             status: 'FAILED',

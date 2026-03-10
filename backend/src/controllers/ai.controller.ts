@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../models/prisma';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { GmailIntegration } from '../integrations/gmail';
+import fetch from 'node-fetch';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -107,14 +108,14 @@ export class AIController {
                 return;
             }
 
-            const { prompt, audienceRole, recipients } = req.body;
+            const { prompt, audienceRole, recipients: rawRecipients } = req.body;
 
             if (!prompt || typeof prompt !== 'string') {
                 res.status(400).json({ success: false, message: 'prompt is required' });
                 return;
             }
 
-            let targetEmails: string[] = Array.isArray(recipients) ? recipients.filter(Boolean) : [];
+            let targetEmails: string[] = Array.isArray(rawRecipients) ? rawRecipients.filter(Boolean) : [];
 
             if (targetEmails.length === 0 && audienceRole) {
                 const users = await prisma.user.findMany({
@@ -232,7 +233,7 @@ Rules:
             }
 
             if (scheduledAt) {
-                await (prisma as any).scheduledEmail.create({
+                await prisma.scheduledEmail.create({
                     data: {
                         userId: user.id,
                         fromEmail: user.email,
