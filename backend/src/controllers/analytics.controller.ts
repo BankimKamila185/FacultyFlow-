@@ -10,9 +10,9 @@ export class AnalyticsController {
             // "Project Total" (globalTotal) is handled inside the service separately
             const filter = { userId: user.id, email: user.email };
             
+            console.log(`[Analytics] Fetching for User: ${user?.email} (${user?.id})`);
             const metrics = await AnalyticsService.getDashboardMetrics(filter);
-            
-            console.log(`[Analytics] Live metrics fetched for ${user?.email} (${user?.role})`);
+            console.log(`[Analytics] Result:`, JSON.stringify(metrics, null, 2));
             
             res.status(200).json({ success: true, data: metrics });
         } catch (error) {

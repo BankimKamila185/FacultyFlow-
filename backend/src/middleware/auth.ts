@@ -83,10 +83,12 @@ export const authenticate: RequestHandler = async (req: any, res, next) => {
             }
         }
 
-        // Ensure we use the FRESH dbUser ID and role even if not mocked
+        // Ensure we use the FRESH dbUser ID, role, and email
         req.user = {
             ...decoded,
             id: dbUser.id,
+            email: dbUser.email,
+            name: dbUser.name,
             role: dbUser.role
         };
         next();
