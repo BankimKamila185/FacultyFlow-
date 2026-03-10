@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: faculty-flow-backend
+    env: node
+    buildCommand: npm install && npx prisma generate && npx prisma db push && npm run build
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: PORT
+        value: 10000

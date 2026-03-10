@@ -27,6 +27,8 @@ export default function Workflow() {
   const [showToast, setShowToast] = useState(false);
 
   const userEmail = (devUser?.email || currentUser?.email || backendUser?.email || '').toLowerCase();
+  const userRole = (devUser?.role || currentUser?.role || backendUser?.role || 'FACULTY').toUpperCase();
+  const isAdmin = userRole === 'ADMIN' || userRole === 'HOD';
 
   // 4 Columns matching the provided image
   // 4 Columns matching the status transitions
@@ -159,6 +161,17 @@ export default function Workflow() {
 
       {/* ─── Control Bar ───────────────────────────────────────────── */}
       <div className="wf-controls">
+        {isAdmin && (
+            <div style={{
+                background: 'rgba(99, 102, 241, 0.1)', color: 'var(--primary)',
+                padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.75rem',
+                fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em',
+                border: '1px solid rgba(99, 102, 241, 0.3)', display: 'flex', alignItems: 'center', gap: '0.4rem'
+            }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Admin View
+            </div>
+        )}
         <button className="wf-btn-ai" onClick={handleAISuggest}>
           <span className="wf-ai-icon">✨</span> AI Suggest Assignments
         </button>

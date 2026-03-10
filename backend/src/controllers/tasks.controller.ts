@@ -149,8 +149,35 @@ export const updateTaskStatus = async (req: Request, res: Response): Promise<voi
             data: { 
                 ...(status && { status }),
                 ...(req.body.priority && { priority: req.body.priority })
+            },
+            include: {
+                assignedTo: true,
+                createdBy: true
             }
         });
+
+        if (status === 'COMPLETED') {
+            const currentUserId = (req as any).user?.id;
+            // Notify the creator if it was assigned to someone else
+            if (task.createdById && task.createdById !== currentUserId && task.createdById !== task.assignedToId) {
+                await prisma.notification.create({
+                    data: {
+                        userId: task.createdById,
+                        type: 'TASK_COMPLETED',
+                        message: `Task "${task.title}" was completed by ${task.assignedTo?.name || 'User'}`
+                    }
+                });
+            } else if (task.assignedToId && task.assignedToId !== currentUserId && task.assignedToId !== task.createdById) {
+                 // Or notify the assignee if they didn't complete it themselves
+                 await prisma.notification.create({
+                    data: {
+                        userId: task.assignedToId,
+                        type: 'TASK_COMPLETED',
+                        message: `Task "${task.title}" has been marked as completed`
+                    }
+                });
+            }
+        }
 
         // Trigger Google Sheets write-back if we had a dedicated job, but for now just update DB
         // The SheetsController could be invoked here as well if needed.
