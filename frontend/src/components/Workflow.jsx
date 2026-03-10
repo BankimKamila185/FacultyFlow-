@@ -53,10 +53,7 @@ export default function Workflow() {
               .filter(r => r.email.toLowerCase() !== userEmail)
               .map(r => r.email);
 
-            const priorities = ['Medium', 'High', 'Low'];
-            // Stable hash for semi-random priority that doesn't change on sort
-            const hash = task.id.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-            const priority = priorities[hash % 3];
+            const priority = task.priority || 'Medium';
             
             let progress = 0;
             if (task.status === 'COMPLETED') progress = 100;

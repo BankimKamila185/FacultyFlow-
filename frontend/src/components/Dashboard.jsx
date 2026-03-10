@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { fetchWithAuth, getAvatarUrl } from '../utils/api';
 
-export default function Dashboard() {
+export default function Dashboard({ setActiveTab }) {
     const [workflows, setWorkflows] = useState([]);
     const [tasks, setTasks] = useState([]);
     const [myTasks, setMyTasks] = useState([]);
@@ -75,8 +75,13 @@ export default function Dashboard() {
         <div style={{ padding: '0 1rem' }}>
             {/* ─── Page Title ───────────────────────────────────────────── */}
             <div style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                <div>
-                    <h1 className="db-title" style={{ fontSize: '1.4rem' }}>Overview</h1>
+                <div style={{ cursor: 'pointer' }} onClick={() => fetchData(true)}>
+                    <h1 className="db-title" style={{ fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        Overview
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
+                            <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                        </svg>
+                    </h1>
                     <p className="db-subtitle" style={{ fontSize: '0.8rem', opacity: 0.8 }}>Monitor all of your projects and faculty tasks with 100% live accuracy</p>
                 </div>
                 {syncing && (
@@ -288,13 +293,15 @@ export default function Dashboard() {
             <div className="db-table-section" style={{ marginTop: '2rem', borderRadius: '24px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
                 <div className="dt-header" style={{ padding: '1.25rem 1.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Master Task Registry</h2>
-                    <button style={{ 
-                        padding: '0.5rem 1rem', borderRadius: '10px', 
-                        border: '1px solid var(--border-color)', background: 'var(--bg-card)',
-                        fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem',
-                        boxShadow: 'var(--shadow-sm)', cursor: 'pointer', transition: 'all 0.3s ease',
-                        color: 'var(--text-main)'
-                    }} className="filter-btn">
+                    <button 
+                        onClick={() => setActiveTab('My Task')}
+                        style={{ 
+                            padding: '0.5rem 1rem', borderRadius: '10px', 
+                            border: '1px solid var(--border-color)', background: 'var(--bg-card)',
+                            fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            boxShadow: 'var(--shadow-sm)', cursor: 'pointer', transition: 'all 0.3s ease',
+                            color: 'var(--text-main)'
+                        }} className="filter-btn">
                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg> Filter
                     </button>
                 </div>
@@ -320,7 +327,8 @@ export default function Dashboard() {
                                 let pct = 0;
                                 if (isDone) pct = 100;
                                 else if (task.status === 'IN_PROGRESS') pct = 50;
-                                const isMedium = idx % 2 === 0;
+                                const priority = task.priority?.toUpperCase() || 'MEDIUM';
+                                const priorityColor = priority === 'HIGH' ? '#EF4444' : (priority === 'LOW' ? '#10B981' : '#F59E0B');
                                 return (
                                     <tr key={task.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                                         <td style={{ padding: '1rem 0.75rem 1rem 1.75rem' }}>
@@ -348,9 +356,9 @@ export default function Dashboard() {
                                         </td>
                                         <td style={{ padding: '1rem 1.75rem 1rem 0.75rem' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isMedium ? '#F59E0B' : '#EF4444' }}></div>
-                                                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: isMedium ? '#D97706' : '#EF4444' }}>
-                                                    {isMedium ? 'Regular' : 'Urgent'}
+                                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: priorityColor }}></div>
+                                                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: priorityColor }}>
+                                                    {priority.charAt(0) + priority.slice(1).toLowerCase()}
                                                 </span>
                                             </div>
                                         </td>

@@ -96,11 +96,12 @@ export const getAllTasks = async (req: Request, res: Response): Promise<void> =>
             deadline: task.deadline,
             startDate: task.startDate,
             description: task.description,
+            priority: task.priority,
             sprintName: task.workflow?.sprintName || null,
             subEvent: task.workflow?.type || null,
             assignedTo: task.assignedTo,
             responsibles: task.responsibles,
-            remarks: task.remarks || 'noo remark',
+            remarks: task.remarks || 'no remark',
             workflowId: task.workflowId,
         }));
 
@@ -145,7 +146,10 @@ export const updateTaskStatus = async (req: Request, res: Response): Promise<voi
 
         const task = await prisma.task.update({
             where: { id },
-            data: { status }
+            data: { 
+                ...(status && { status }),
+                ...(req.body.priority && { priority: req.body.priority })
+            }
         });
 
         // Trigger Google Sheets write-back if we had a dedicated job, but for now just update DB

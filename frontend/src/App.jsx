@@ -554,7 +554,7 @@ export default function App() {
           border: '1px solid var(--border-color)',
           transition: 'background 0.3s ease, border-color 0.3s ease'
         }}>
-          {activeTab === 'Dashboard' && <Dashboard />}
+          {activeTab === 'Dashboard' && <Dashboard setActiveTab={setActiveTab} />}
           {activeTab === 'Profile' && <UserProfile theme={theme} toggleTheme={toggleTheme} />}
           {activeTab === 'My Task' && <Tasks />}
           {activeTab === 'Projects' && <Workflow />}

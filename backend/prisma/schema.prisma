@@ -48,6 +48,7 @@ model Task {
   title              String
   description        String?
   status             String            @default("PENDING")
+  priority           String            @default("MEDIUM")
   deadline           DateTime?
   startDate          DateTime?
   workflowId         String?

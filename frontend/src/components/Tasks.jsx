@@ -8,6 +8,7 @@ export default function Tasks() {
     const [filter, setFilter] = useState('All');
     const [allTasks, setAllTasks] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [aiProcessing, setAiProcessing] = useState(false);
 
     const userEmail = (devUser?.email || currentUser?.email || backendUser?.email || '').toLowerCase();
 
@@ -33,11 +34,11 @@ export default function Tasks() {
                             faculty: task.assignedTo?.name || 'Unassigned',
                             deadline: task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No Deadline',
                             status: displayStatus,
-                            priority: idx % 3 === 0 ? 'HIGH' : 'MEDIUM',
+                            priority: task.priority || 'MEDIUM',
                             colleagues,
                             isMe,
-                            sprintName: task.sprintName || 'SPRINT 1',
-                            subEvent: task.subEvent || 'GENERAL'
+                            sprintName: task.sprintName || 'GENERAL',
+                            subEvent: task.subEvent || 'TASK'
                         };
                     });
                     setAllTasks(mappedTasks);
@@ -75,6 +76,22 @@ export default function Tasks() {
             }
         } catch (err) {
             console.error("Error updating status:", err);
+        }
+    };
+
+    const handleAISuggest = async () => {
+        setAiProcessing(true);
+        try {
+            const res = await fetchWithAuth(`${API_URL}/ai/suggest`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                // Refresh tasks after suggestion
+                window.location.reload(); 
+            }
+        } catch (err) {
+            console.error("AI Suggestion error:", err);
+        } finally {
+            setAiProcessing(false);
         }
     };
 
@@ -165,8 +182,13 @@ export default function Tasks() {
                         </button>
                     ))}
                 </div>
-                <button className="ai-btn" title="✨ AI Suggest Assignments">
-                    ✨ AI Suggest Assignments
+                <button 
+                    className="ai-btn" 
+                    title="✨ AI Suggest Assignments"
+                    onClick={handleAISuggest}
+                    disabled={aiProcessing}
+                >
+                    {aiProcessing ? '🤖 Thinking...' : '✨ AI Suggest Assignments'}
                 </button>
             </div>
 
