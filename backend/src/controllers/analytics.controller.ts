@@ -5,13 +5,14 @@ export class AnalyticsController {
     static async getDashboardMetrics(req: Request, res: Response, next: NextFunction) {
         try {
             const user = (req as any).user;
-            const isFaculty = user?.role?.toUpperCase() === 'FACULTY';
-            const filter = isFaculty ? { userId: user.id, email: user.email } : undefined;
+            
+            // ALWAYS filter for personalized metrics based on current user
+            // "Project Total" (globalTotal) is handled inside the service separately
+            const filter = { userId: user.id, email: user.email };
             
             const metrics = await AnalyticsService.getDashboardMetrics(filter);
             
-            // Log for debugging if needed
-            console.log(`[Analytics] Metrics for ${user?.email} (Role: ${user?.role}):`, metrics.tasks.total);
+            console.log(`[Analytics] Live metrics fetched for ${user?.email} (${user?.role})`);
             
             res.status(200).json({ success: true, data: metrics });
         } catch (error) {

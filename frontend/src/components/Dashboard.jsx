@@ -105,7 +105,10 @@ export default function Dashboard({ setActiveTab }) {
             <div className="over-stats" style={{ marginBottom: '1.5rem', gap: '1rem' }}>
                 <div className="over-card">
                     <div>
-                        <div className="over-label">Project Total Tasks</div>
+                        <div className="over-label" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            Project Total Tasks
+                            <span style={{ fontSize: '0.6rem', color: '#10B981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>LIVE</span>
+                        </div>
                         <div className="over-value">{stats.globalTotal}</div>
                     </div>
                     <div className="over-icon" style={{ background: 'var(--bg-dark)', color: 'var(--primary)', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>
@@ -114,7 +117,10 @@ export default function Dashboard({ setActiveTab }) {
                 </div>
                 <div className="over-card">
                     <div>
-                        <div className="over-label">My Assigned Tasks</div>
+                        <div className="over-label" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            My Assigned Tasks
+                            <span style={{ fontSize: '0.6rem', color: 'var(--primary)', background: 'var(--primary-glow)', padding: '2px 6px', borderRadius: '4px' }}>PERSONAL</span>
+                        </div>
                         <div className="over-value">{stats.total}</div>
                     </div>
                     <div className="over-icon" style={{ background: 'var(--bg-dark)', color: 'var(--primary)', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>
@@ -123,7 +129,7 @@ export default function Dashboard({ setActiveTab }) {
                 </div>
                 <div className="over-card">
                     <div>
-                        <div className="over-label">Active / Progress</div>
+                        <div className="over-label">Collaborative Progress</div>
                         <div className="over-value">{stats.active}</div>
                     </div>
                     <div className="over-icon" style={{ background: 'var(--bg-dark)', color: '#D97706', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>
@@ -132,7 +138,7 @@ export default function Dashboard({ setActiveTab }) {
                 </div>
                 <div className="over-card">
                     <div>
-                        <div className="over-label">Completed Achievements</div>
+                        <div className="over-label">Success Rate</div>
                         <div className="over-value">{stats.completed}</div>
                     </div>
                     <div className="over-icon" style={{ background: 'var(--bg-dark)', color: '#10B981', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>

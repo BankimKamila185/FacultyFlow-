@@ -18,7 +18,7 @@ export class AnalyticsService {
             prisma.task.count({ where: { ...whereClause, status: 'IN_REVIEW' } }),
             prisma.task.count({ where: { ...whereClause, status: 'COMPLETED' } }),
             prisma.task.count({ where: { ...whereClause, status: 'OVERDUE' } }),
-            prisma.task.count(), // Global total across all users
+            prisma.task.count(), // Absolute Project-wide Total
         ]);
 
         const activeWorkflows = await prisma.workflow.count({ where: { status: 'ACTIVE' } });
