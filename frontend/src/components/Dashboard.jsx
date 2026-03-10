@@ -40,16 +40,11 @@ export default function Dashboard() {
 
             if (wfData.success) setWorkflows(wfData.data.slice(0, 4));
             if (myTasksData.success) setMyTasks(myTasksData.data.slice(0, 10));
-            if (allTasksData.success) setTasks(allTasksData.data);
-            if (notifData.success) setNotifications(notifData.data);
-            if (inboxData.success) setInbox(inboxData.data.slice(0, 5));
-            if (metricsData.success) {
-                console.log("[Dashboard] Metrics Data:", metricsData.data);
-                setMetrics(metricsData.data);
-            }
             if (allTasksData.success) {
-                console.log("[Dashboard] All Tasks Length:", allTasksData.data.length);
                 setTasks(allTasksData.data);
+            }
+            if (metricsData.success) {
+                setMetrics(metricsData.data);
             }
 
         } catch (error) {
