@@ -1,69 +1,50 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { API_URL } from '../config';
 import { fetchWithAuth } from '../utils/api';
 
 export default function PromptEmail() {
-    const [prompt, setPrompt] = useState('');
+    const [messages, setMessages] = useState([]);
+    const [currentPrompt, setCurrentPrompt] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState('');
-    
-    // Step-related state
-    const [step, setStep] = useState('INPUT'); // 'INPUT' or 'REVIEW'
-    const [audienceRole, setAudienceRole] = useState('FACULTY');
-    const [customRecipients, setCustomRecipients] = useState('');
-    
-    const [draft, setDraft] = useState({
-        subject: '',
-        body: '',
-        recipients: [],
-        scheduledAt: null
-    });
     const [successMessage, setSuccessMessage] = useState('');
-
-    // Re-fetch recipients when audience role changes in REVIEW step
-    useEffect(() => {
-        if (step === 'REVIEW' && audienceRole !== 'CUSTOM') {
-             fetchRecipients(audienceRole);
-        }
-    }, [audienceRole, step]);
-
-    const fetchRecipients = async (role) => {
-        try {
-            const res = await fetchWithAuth(`${API_URL}/ai/draft-email`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: 'Lookup only', audienceRole: role })
-            });
-            const data = await res.json();
-            if (data.success) {
-                setDraft(prev => ({ ...prev, recipients: data.data.recipients }));
-            }
-        } catch (e) { console.error("Recipient fetch fail", e); }
+    
+    // For auto-scrolling
+    const messagesEndRef = useRef(null);
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
-    const handleGenerateDraft = async () => {
-        setError('');
-        setIsProcessing(true);
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages, isProcessing]);
 
-        if (!prompt.trim()) {
-            setError('Please describe what you want to send.');
-            setIsProcessing(false);
-            return;
-        }
+    const handleGenerateDraft = async () => {
+        if (!currentPrompt.trim()) return;
+
+        setError('');
+        const userPrompt = currentPrompt;
+        setCurrentPrompt('');
+        
+        // Add user message to history
+        setMessages(prev => [...prev, { type: 'USER', content: userPrompt }]);
+        setIsProcessing(true);
 
         try {
             const res = await fetchWithAuth(`${API_URL}/ai/draft-email`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt })
+                body: JSON.stringify({ prompt: userPrompt })
             });
             const data = await res.json();
+            
             if (data.success) {
-                setDraft(data.data);
-                if (data.data.detectedAudience) {
-                    setAudienceRole(data.data.detectedAudience);
-                }
-                setStep('REVIEW');
+                // Add AI response to history
+                setMessages(prev => [...prev, { 
+                    type: 'AI', 
+                    data: data.data,
+                    id: Date.now() 
+                }]);
             } else {
                 setError(data.message || 'Draft generation failed.');
             }
@@ -75,35 +56,22 @@ export default function PromptEmail() {
         }
     };
 
-    const handleConfirmSend = async () => {
+    const handleConfirmSend = async (msgId, draftData) => {
         setError('');
         setIsProcessing(true);
         
-        let finalRecipients = draft.recipients;
-        if (audienceRole === 'CUSTOM') {
-            finalRecipients = customRecipients.split(',').map(e => e.trim()).filter(Boolean);
-            if (!finalRecipients.length) {
-                setError('Please enter custom email addresses.');
-                setIsProcessing(false);
-                return;
-            }
-        }
-
         try {
             const res = await fetchWithAuth(`${API_URL}/ai/confirm-send`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...draft, recipients: finalRecipients })
+                body: JSON.stringify(draftData)
             });
             const data = await res.json();
             if (data.success) {
                 setSuccessMessage(data.message);
-                setTimeout(() => {
-                    setStep('INPUT');
-                    setPrompt('');
-                    setDraft({ subject: '', body: '', recipients: [], scheduledAt: null });
-                    setSuccessMessage('');
-                }, 3000);
+                // Mark this specific message as sent
+                setMessages(prev => prev.map(m => m.id === msgId ? { ...m, sent: true } : m));
+                setTimeout(() => setSuccessMessage(''), 3000);
             } else {
                 setError(data.message || 'Failed to send.');
             }
@@ -114,111 +82,257 @@ export default function PromptEmail() {
         }
     };
 
+    const copyToClipboard = (text) => {
+        navigator.clipboard.writeText(text);
+        // Simple visual feedback could be added here
+    };
+
     return (
-        <div className="pm-container">
+        <div className="chat-container">
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
                 
-                .pm-container { max-width: 900px; margin: 0 auto; font-family: 'Inter', system-ui, sans-serif; padding: 2rem 1rem; }
-                .pm-header { margin-bottom: 2.5rem; text-align: center; }
-                .pm-header h2 { font-size: 2.5rem; font-weight: 900; letter-spacing: -0.05em; background: linear-gradient(135deg, var(--text-main) 0%, var(--text-dim) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; }
-                .pm-header p { color: var(--text-dim); font-size: 1.1rem; font-weight: 500; opacity: 0.8; }
-                .pm-glass-card { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 32px; padding: 2.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
-                .pm-group { margin-bottom: 1.5rem; }
-                .pm-label { display: block; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--primary-glow); margin-bottom: 0.75rem; opacity: 0.9; }
-                .pm-textarea { width: 100%; min-height: 160px; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 20px; padding: 1.25rem; color: var(--text-main); font-size: 1rem; line-height: 1.6; resize: none; }
-                .pm-input { width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 14px; padding: 0.85rem 1.25rem; color: var(--text-main); font-size: 0.95rem; }
-                .pm-schedule-toast { background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%); color: white; padding: 1rem 1.5rem; border-radius: 20px; display: flex; align-items: center; gap: 12px; margin-top: 1rem; }
-                .pm-action-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; }
-                .pm-primary-btn { background: var(--gradient-primary); color: white; border: none; padding: 1rem 2.5rem; border-radius: 99px; font-weight: 800; font-size: 1rem; cursor: pointer; box-shadow: 0 8px 16px rgba(0,0,0,0.3), var(--primary-glow) 0 4px 12px; }
-                .pm-ghost-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-dim); padding: 0.85rem 1.5rem; border-radius: 99px; font-weight: 600; cursor: pointer; }
-                .spinner-small { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
-                @keyframes spin { to { transform: rotate(360deg); } }
+                .chat-container { 
+                    max-width: 800px; 
+                    margin: 0 auto; 
+                    font-family: 'Inter', system-ui, sans-serif; 
+                    height: calc(100vh - 120px);
+                    display: flex;
+                    flex-direction: column;
+                    padding: 1rem;
+                }
+
+                /* Messages Area */
+                .messages-flow {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding-bottom: 2rem;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1.5rem;
+                }
+                .messages-flow::-webkit-scrollbar { width: 6px; }
+                .messages-flow::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+
+                /* User Bubble */
+                .user-message {
+                    align-self: flex-end;
+                    max-width: 80%;
+                    background: #2D2D30;
+                    color: #E3E3E3;
+                    padding: 1rem 1.25rem;
+                    border-radius: 24px 24px 4px 24px;
+                    font-size: 0.95rem;
+                    line-height: 1.5;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                }
+
+                /* AI Response Card */
+                .ai-card {
+                    align-self: flex-start;
+                    width: 100%;
+                    background: #1E1E1E;
+                    border: 1px solid rgba(255,255,255,0.08);
+                    border-radius: 20px;
+                    overflow: hidden;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                }
+                .ai-card-header {
+                    padding: 0.75rem 1.25rem;
+                    border-bottom: 1px solid rgba(255,255,255,0.05);
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    background: rgba(255,255,255,0.02);
+                }
+                .ai-card-header .title { font-size: 0.8rem; font-weight: 700; color: #8E8EA0; text-transform: uppercase; letter-spacing: 0.05em; }
+                .ai-card-actions { display: flex; gap: 12px; }
+                .icon-btn { 
+                    background: transparent; 
+                    border: none; 
+                    color: #8E8EA0; 
+                    cursor: pointer; 
+                    padding: 4px;
+                    border-radius: 6px;
+                    transition: all 0.2s;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .icon-btn:hover { background: rgba(255,255,255,0.1); color: #FFF; }
+                
+                .ai-card-content { padding: 1.25rem; color: #D1D1D1; }
+                .email-subject { font-size: 1.1rem; font-weight: 700; color: #FFF; margin-bottom: 1rem; }
+                .email-body { 
+                    font-size: 0.95rem; 
+                    line-height: 1.6; 
+                    white-space: pre-wrap; 
+                    color: #BBB;
+                    padding-bottom: 1rem;
+                    border-bottom: 1px solid rgba(255,255,255,0.05);
+                }
+
+                .ai-card-footer {
+                    padding: 0.75rem 1.25rem;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    background: rgba(0,0,0,0.1);
+                }
+                .meta-item { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 600; color: #666; }
+                .status-badge { 
+                    background: rgba(16, 185, 129, 0.1); 
+                    color: #10B981; 
+                    padding: 4px 10px; 
+                    border-radius: 99px; 
+                    font-size: 0.7rem; 
+                    font-weight: 700; 
+                }
+
+                /* Input Area */
+                .chat-input-wrapper {
+                    padding: 1rem 0;
+                    position: relative;
+                }
+                .input-box {
+                    background: #2D2D30;
+                    border: 1px solid rgba(255,255,255,0.1);
+                    border-radius: 16px;
+                    padding: 1rem;
+                    display: flex;
+                    gap: 12px;
+                    align-items: flex-end;
+                    box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
+                }
+                .chat-textarea {
+                    flex: 1;
+                    background: transparent;
+                    border: none;
+                    color: white;
+                    font-size: 1rem;
+                    resize: none;
+                    max-height: 200px;
+                    outline: none;
+                    padding: 4px 0;
+                }
+                .send-btn {
+                    background: #FFF;
+                    color: #000;
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 10px;
+                    border: none;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: opacity 0.2s;
+                }
+                .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+                /* Loading State */
+                .loader-card { padding: 1.25rem; background: #1E1E1E; border-radius: 20px; align-self: flex-start; display: flex; align-items: center; gap: 12px; color: #666; font-size: 0.9rem; }
+                .dot-flashing {
+                    position: relative; width: 6px; height: 6px; border-radius: 5px; background-color: #666; color: #666;
+                    animation: dot-flashing 1s infinite linear alternate; animation-delay: 0.5s;
+                }
+                .dot-flashing::before, .dot-flashing::after {
+                    content: ""; display: inline-block; position: absolute; top: 0;
+                }
+                .dot-flashing::before {
+                    left: -12px; width: 6px; height: 6px; border-radius: 5px; background-color: #666; color: #666;
+                    animation: dot-flashing 1s infinite linear alternate; animation-delay: 0s;
+                }
+                .dot-flashing::after {
+                    left: 12px; width: 6px; height: 6px; border-radius: 5px; background-color: #666; color: #666;
+                    animation: dot-flashing 1s infinite linear alternate; animation-delay: 1s;
+                }
+                @keyframes dot-flashing { 0% { background-color: #666; } 50%, 100% { background-color: #333; } }
+
+                .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: #10B981; color: white; padding: 0.75rem 1.5rem; border-radius: 99px; font-weight: 700; font-size: 0.9rem; box-shadow: 0 10px 20px rgba(0,0,0,0.2); z-index: 1000; }
             `}</style>
 
-            <div className="pm-header">
-                <h2>AI Mail Composer</h2>
-                <p>Just type your goal. We'll handle the rest.</p>
-            </div>
-
-            <div className="pm-glass-card">
-                {step === 'INPUT' ? (
-                    <div>
-                        <div className="pm-group">
-                            <label className="pm-label">Your Instruction</label>
-                            <textarea 
-                                className="pm-textarea" 
-                                style={{ minHeight: '200px' }}
-                                placeholder="E.g. Send a reminder to all students about Friday's quiz tomorrow morning..."
-                                value={prompt} onChange={e => setPrompt(e.target.value)}
-                            />
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <button className="pm-primary-btn" onClick={handleGenerateDraft} disabled={isProcessing}>
-                                {isProcessing ? <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><div className="spinner-small" /> Analyzing...</span> : 'Draft & Identify Audience'}
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div>
-                        <div className="pm-group">
-                            <label className="pm-label">Subject</label>
-                            <input className="pm-input" value={draft.subject} onChange={e => setDraft({...draft, subject: e.target.value})} />
-                        </div>
-                        <div className="pm-group">
-                            <label className="pm-label">Professional Draft</label>
-                            <textarea className="pm-textarea" style={{ minHeight: '200px' }} value={draft.body} onChange={e => setDraft({...draft, body: e.target.value})} />
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                            <div className="pm-group">
-                                <label className="pm-label">Send To (AI Detected)</label>
-                                <select className="pm-input" value={audienceRole} onChange={e => setAudienceRole(e.target.value)}>
-                                    <option value="FACULTY">Faculty</option>
-                                    <option value="HOD">HODs</option>
-                                    <option value="STUDENT">Students</option>
-                                    <option value="CUSTOM">Custom Emails</option>
-                                </select>
-                            </div>
-                            <div className="pm-group">
-                                <label className="pm-label">Recipient Stats</label>
-                                <div style={{ fontSize: '0.9rem', color: draft.recipients.length ? '#10B981' : '#ef4444', fontWeight: 700, padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.1)', borderRadius: '12px' }}>
-                                    {draft.recipients.length} Recipient(s) Found
-                                </div>
-                            </div>
-                        </div>
-
-                        {audienceRole === 'CUSTOM' && (
-                            <div className="pm-group">
-                                <label className="pm-label">Enter Email List</label>
-                                <input className="pm-input" placeholder="a@b.com, c@d.com..." value={customRecipients} onChange={e => setCustomRecipients(e.target.value)} />
-                            </div>
-                        )}
-
-                        {draft.scheduledAt && (
-                            <div className="pm-schedule-toast">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, opacity: 0.8 }}>Automatically Scheduled</div>
-                                    <div style={{ fontSize: '1rem', fontWeight: 800 }}>{new Date(draft.scheduledAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</div>
-                                </div>
-                                <button style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.75rem', cursor: 'pointer' }} onClick={() => setDraft({...draft, scheduledAt: null})}>Cancel</button>
-                            </div>
-                        )}
-
-                        {successMessage && <div style={{ background: '#10B98120', color: '#10B981', padding: '1rem', borderRadius: '16px', marginTop: '1.5rem', fontWeight: 700, textAlign: 'center' }}>✨ {successMessage}</div>}
-                        {error && <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '1rem', fontWeight: 600 }}>⚠️ {error}</div>}
-
-                        <div className="pm-action-bar">
-                            <button className="pm-ghost-btn" onClick={() => setStep('INPUT')}>Edit Prompt</button>
-                            <button className="pm-primary-btn" onClick={handleConfirmSend} disabled={isProcessing}>
-                                {isProcessing ? 'Processing...' : draft.scheduledAt ? 'Confirm Schedule' : 'Send Now'}
-                            </button>
-                        </div>
+            <div className="messages-flow">
+                {messages.length === 0 && (
+                    <div style={{ marginTop: 'auto', textAlign: 'center', color: '#666', marginBottom: '2rem' }}>
+                        <h2 style={{ color: '#FFF', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>AI Mail Assistant</h2>
+                        <p style={{ fontSize: '0.9rem' }}>Type a prompt to generate professional emails instantly.</p>
                     </div>
                 )}
-                {error && step === 'INPUT' && <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '1rem', fontWeight: 600 }}>⚠️ {error}</div>}
+                
+                {messages.map((msg, idx) => (
+                    <React.Fragment key={idx}>
+                        {msg.type === 'USER' ? (
+                            <div className="user-message">{msg.content}</div>
+                        ) : (
+                            <div className="ai-card">
+                                <div className="ai-card-header">
+                                    <span className="title">Email</span>
+                                    <div className="ai-card-actions">
+                                        <button className="icon-btn" title="Copy Content" onClick={() => copyToClipboard(msg.data.body)}>
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                        </button>
+                                        {!msg.sent && (
+                                            <button className="icon-btn" title="Send Now" onClick={() => handleConfirmSend(msg.id, msg.data)}>
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="ai-card-content">
+                                    <div className="email-subject">Subject: {msg.data.subject}</div>
+                                    <div className="email-body">{msg.data.body}</div>
+                                </div>
+                                <div className="ai-card-footer">
+                                    <div className="meta-item">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                        {msg.data.recipients?.length || 0} {msg.data.detectedAudience || 'Recipients'}
+                                    </div>
+                                    {msg.sent && <div className="status-badge">Email Sent</div>}
+                                    {msg.data.scheduledAt && !msg.sent && (
+                                        <div className="meta-item" style={{ color: '#A855F7' }}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                            Scheduled: {new Date(msg.data.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </React.Fragment>
+                ))}
+
+                {isProcessing && (
+                    <div className="loader-card">
+                        <div className="dot-flashing" />
+                        <span>Generating your email...</span>
+                    </div>
+                )}
+                <div ref={messagesEndRef} />
             </div>
+
+            <div className="chat-input-wrapper">
+                {error && <div style={{ color: '#ef4444', fontSize: '0.8rem', marginBottom: '8px', fontWeight: 600 }}>⚠️ {error}</div>}
+                <div className="input-box">
+                    <textarea 
+                        className="chat-textarea"
+                        placeholder="e.g. send remember to student tomorrow is a town hall at 11am to 1pm"
+                        rows="1"
+                        value={currentPrompt}
+                        onChange={(e) => setCurrentPrompt(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleGenerateDraft();
+                            }
+                        }}
+                    />
+                    <button className="send-btn" onClick={handleGenerateDraft} disabled={isProcessing || !currentPrompt.trim()}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            {successMessage && <div className="toast">✨ {successMessage}</div>}
         </div>
     );
 }
