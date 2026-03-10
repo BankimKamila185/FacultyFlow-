@@ -11,11 +11,10 @@ import Workflow from './components/Workflow';
 import GoogleCalendar from './components/GoogleCalendar';
 import GoogleTools from './components/GoogleTools';
 import Notifications from './components/Notifications';
-import Inbox from './components/Inbox';
-import Settings from './components/Settings';
 import UserProfile from './components/UserProfile';
 import StudentQueries from './components/StudentQueries';
 import PromptEmail from './components/PromptEmail';
+import AdminDashboard from './components/AdminDashboard';
 
 // ─── Nav Icons ───────────────────────────────────────────────────────────────
 const icons = {
@@ -90,6 +89,11 @@ const icons = {
       <path d="M4 4h16v16H4z" />
       <polyline points="4 6 12 13 20 6" />
       <path d="M9 18h6" />
+    </svg>
+  ),
+  'Admin Panel': (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
     </svg>
   ),
 };
@@ -333,7 +337,11 @@ export default function App() {
     return <LoginPage onLogin={loginWithGoogle} />;
   }
 
+  const userRole = (devUser?.role || currentUser?.role || backendUser?.role || 'FACULTY').toUpperCase();
+  const isAdmin = userRole === 'ADMIN' || userRole === 'HOD';
+
   const navItems = [
+    ...(isAdmin ? ['Admin Panel'] : []),
     'Dashboard',
     'Projects',
     'My Task',
@@ -565,6 +573,7 @@ export default function App() {
           transition: 'background 0.3s ease, border-color 0.3s ease'
         }}>
           {activeTab === 'Dashboard' && <Dashboard setActiveTab={setActiveTab} />}
+          {activeTab === 'Admin Panel' && <AdminDashboard setActiveTab={setActiveTab} />}
           {activeTab === 'Profile' && <UserProfile theme={theme} toggleTheme={toggleTheme} />}
           {activeTab === 'My Task' && <Tasks />}
           {activeTab === 'Projects' && <Workflow />}
@@ -573,7 +582,6 @@ export default function App() {
           {activeTab === 'AI Mail' && <PromptEmail />}
           {activeTab === 'Workspace' && <GoogleTools />}
           {activeTab === 'Calendar' && <GoogleCalendar />}
-
           {activeTab === 'Notifications' && <Notifications />}
           {activeTab === 'Settings' && <Settings />}
         </div>

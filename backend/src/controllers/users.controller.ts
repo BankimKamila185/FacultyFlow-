@@ -115,3 +115,54 @@ export const updateFacultyProfile = async (req: any, res: Response): Promise<voi
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+/**
+ * GET /api/users
+ * Authenticated — returns all users with their task stats. Used for Admin Dashboard.
+ */
+export const getAllFacultyStats = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const currentUser = (req as any).user;
+        if (currentUser?.role !== 'ADMIN' && currentUser?.role !== 'HOD') {
+            res.status(403).json({ success: false, message: 'Forbidden: Admin access required.' });
+            return;
+        }
+
+        const facultyList = await prisma.user.findMany({
+            where: { role: 'FACULTY' },
+            select: { id: true, email: true, name: true, photoUrl: true, department: true }
+        });
+
+        // Group tasks by assigned user
+        const tasks = await prisma.task.findMany({
+            select: {
+                assignedToId: true,
+                status: true,
+                responsibles: { select: { email: true } }
+            }
+        });
+
+        const statsMap = facultyList.map(faculty => {
+            // Find tasks where faculty is assignedToId OR in responsibles list
+            const userTasks = tasks.filter(t => 
+                t.assignedToId === faculty.id || 
+                t.responsibles.some(r => r.email === faculty.email)
+            );
+
+            return {
+                ...faculty,
+                stats: {
+                    total: userTasks.length,
+                    completed: userTasks.filter(t => t.status === 'COMPLETED').length,
+                    pending: userTasks.filter(t => t.status === 'PENDING').length,
+                    inProgress: userTasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'IN_REVIEW').length,
+                    overdue: userTasks.filter(t => t.status === 'OVERDUE').length
+                }
+            };
+        });
+
+        res.json({ success: true, data: statsMap });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

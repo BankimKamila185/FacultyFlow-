@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getMyTasks, getAllTasks, updateTaskStatus } from '../controllers/tasks.controller';
+import { getMyTasks, getAllTasks, updateTaskStatus, askReason } from '../controllers/tasks.controller';
 import { authenticate } from '../middleware/auth';
 
 const router = Router();
@@ -19,5 +19,10 @@ router.get('/', authenticate, getAllTasks);
  * PATCH /api/tasks/:id/status — update task status
  */
 router.patch('/:id/status', authenticate, updateTaskStatus);
+
+/**
+ * POST /api/tasks/:id/ask-reason — ask reason for a delayed task
+ */
+router.post('/:id/ask-reason', authenticate, askReason);
 
 export default router;

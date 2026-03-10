@@ -188,3 +188,42 @@ export const updateTaskStatus = async (req: Request, res: Response): Promise<voi
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+/**
+ * POST /api/tasks/:id/ask-reason
+ * Allows an admin/HOD to request a reason for a delayed/overdue task.
+ */
+export const askReason = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const currentUser = (req as any).user;
+        if (currentUser?.role !== 'ADMIN' && currentUser?.role !== 'HOD') {
+            res.status(403).json({ success: false, message: 'Forbidden: Admin access required.' });
+            return;
+        }
+
+        const { id } = req.params;
+        const task = await prisma.task.findUnique({
+            where: { id },
+            include: { assignedTo: true }
+        });
+
+        if (!task) {
+            res.status(404).json({ success: false, message: 'Task not found' });
+            return;
+        }
+
+        // Create a notification for the assigned user
+        await prisma.notification.create({
+            data: {
+                userId: task.assignedToId,
+                type: 'REASON_REQUEST',
+                message: `Admin requested a reason for the delay on task: "${task.title}". Please add a remark.`
+            }
+        });
+
+        res.json({ success: true, message: 'Reason request sent successfully' });
+    } catch (error: any) {
+        console.error('Error asking for reason:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
