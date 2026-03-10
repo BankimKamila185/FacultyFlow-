@@ -88,31 +88,26 @@ export class AIController {
     }
 
     /**
-     * POST /api/ai/prompt-email
-     *
+     * POST /api/ai/draft-email
+     * 
      * Body:
-     *  - prompt: string (what kind of email to write)
-     *  - audienceRole?: string (e.g. "STUDENT", "HOD", "FACULTY")
-     *  - recipients?: string[] (explicit list of email addresses)
-     *
-     * It uses Gemini to turn the prompt into { subject, body },
-     * then sends the email via the logged‑in faculty's Gmail.
+     *  - prompt: string
+     *  - audienceRole?: string
+     *  - recipients?: string[]
+     * 
+     * Returns a draft (subject, body, recipients, detected scheduledAt)
      */
-    static async sendPromptEmail(req: Request, res: Response, next: NextFunction) {
+    static async draftPromptEmail(req: Request, res: Response, next: NextFunction) {
         try {
             const user = (req as any).user;
-            const userEmail = user?.email as string | undefined;
+            const userEmail = user?.email;
 
             if (!userEmail) {
                 res.status(401).json({ success: false, message: 'Not authenticated' });
                 return;
             }
 
-            const { prompt, audienceRole, recipients } = req.body as {
-                prompt?: string;
-                audienceRole?: string;
-                recipients?: string[];
-            };
+            const { prompt, audienceRole, recipients } = req.body;
 
             if (!prompt || typeof prompt !== 'string') {
                 res.status(400).json({ success: false, message: 'prompt is required' });
@@ -130,69 +125,106 @@ export class AIController {
                     .filter(email => email && email !== userEmail);
             }
 
-            if (targetEmails.length === 0) {
-                res.status(400).json({
-                    success: false,
-                    message: 'No recipients found. Provide recipients[] or a valid audienceRole.'
-                });
-                return;
-            }
+            const now = new Date().toISOString();
+            const aiPrompt = `You are a faculty email assistant. 
+Current time: ${now}
 
-            // Ask Gemini to create subject + body
-            const aiPrompt = `You are a faculty email assistant.
+Task:
+1. Write a professional academic email based on: "${prompt}"
+2. Detect if the user specified a time/date to send this email. If so, convert it to an ISO string.
 
-Write a clear, professional academic email based on this instruction:
-"${prompt}"
-
-Output ONLY valid JSON with this exact shape (no markdown, no extra text):
-{"subject":"<short subject>","body":"<email body text>"}
+Output ONLY valid JSON with this shape:
+{
+  "subject": "<short subject>",
+  "body": "<email body text>",
+  "scheduledAt": "<ISO string or null>"
+}
 
 Rules:
-- Body should be polite, under 180 words.
-- Do not invent specific dates or marks; speak generally if needed.
-- Do not include any JSON code fences.`;
+- Body polite, under 180 words.
+- Output ONLY JSON. No markdown.`;
 
             const raw = await callGemini(aiPrompt);
-
             let subject = 'Faculty Announcement';
             let bodyText = prompt;
+            let scheduledAt: string | null = null;
 
             if (raw) {
                 try {
-                    const parsed = JSON.parse(raw);
-                    if (parsed.subject && typeof parsed.subject === 'string') {
-                        subject = parsed.subject;
-                    }
-                    if (parsed.body && typeof parsed.body === 'string') {
-                        bodyText = parsed.body;
-                    }
+                    const cleanJson = raw.replace(/```json|```/g, '').trim();
+                    const parsed = JSON.parse(cleanJson);
+                    subject = parsed.subject || subject;
+                    bodyText = parsed.body || bodyText;
+                    scheduledAt = parsed.scheduledAt || null;
                 } catch (e) {
-                    console.warn('Failed to parse Gemini JSON for prompt-email. Using fallback.', e);
-                    bodyText = prompt;
-                }
-            }
-
-            let sentCount = 0;
-            for (const to of targetEmails) {
-                try {
-                    await GmailIntegration.sendEmail(userEmail, to, subject, bodyText);
-                    sentCount++;
-                } catch (e) {
-                    console.error('Error sending prompt-email to', to, e);
+                    console.warn('Draft Gemini JSON fail', e);
                 }
             }
 
             res.status(200).json({
                 success: true,
-                message: `Email sent to ${sentCount} recipient(s).`,
                 data: {
                     subject,
                     body: bodyText,
-                    recipients: targetEmails
+                    recipients: targetEmails,
+                    scheduledAt
                 }
             });
         } catch (error) {
             next(error);
         }
+    }
+
+    /**
+     * POST /api/ai/confirm-send
+     * 
+     * Body: { subject, body, recipients, scheduledAt }
+     */
+    static async confirmSendEmail(req: Request, res: Response, next: NextFunction) {
+        try {
+            const user = (req as any).user;
+            const { subject, body, recipients, scheduledAt } = req.body;
+
+            if (!subject || !body || !recipients || !recipients.length) {
+                return res.status(400).json({ success: false, message: 'Missing subject, body, or recipients' });
+            }
+
+            if (scheduledAt) {
+                await (prisma as any).scheduledEmail.create({
+                    data: {
+                        userId: user.id,
+                        fromEmail: user.email,
+                        toEmails: recipients,
+                        subject,
+                        body,
+                        scheduledAt: new Date(scheduledAt)
+                    }
+                });
+                return res.status(200).json({ success: true, message: 'Email scheduled successfully' });
+            }
+
+            // Send immediately
+            let sentCount = 0;
+            for (const to of recipients) {
+                try {
+                    await GmailIntegration.sendEmail(user.email, to, subject, body);
+                    sentCount++;
+                } catch (e) {
+                    console.error('Send failed for', to, e);
+                }
+            }
+
+            res.status(200).json({
+                success: true,
+                message: `Sent to ${sentCount} recipient(s).`
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async sendPromptEmail(req: Request, res: Response, next: NextFunction) {
+        // Keeping for backward compatibility, redirecting to draft logic basically
+        return AIController.draftPromptEmail(req, res, next);
     }
 }

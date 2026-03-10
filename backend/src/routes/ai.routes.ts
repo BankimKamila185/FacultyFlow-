@@ -7,5 +7,7 @@ const router = Router();
 router.get('/suggest', authenticate, AIController.suggestAssignments);
 router.get('/health', authenticate, AIController.getGlobalHealth);
 router.post('/prompt-email', authenticate, AIController.sendPromptEmail);
+router.post('/draft-email', authenticate, AIController.draftPromptEmail);
+router.post('/confirm-send', authenticate, AIController.confirmSendEmail);
 
 export default router;

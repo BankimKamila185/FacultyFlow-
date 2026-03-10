@@ -14,6 +14,7 @@ import apiRoutes from './routes';
 import { verifyToken } from './utils/jwt';
 import './utils/redis';
 import { setupSwagger } from './docs/swagger';
+import { EmailScheduler } from './services/EmailScheduler';
 
 
 const logger = winston.createLogger({
@@ -92,6 +93,9 @@ export async function startServer() {
     const server = app.listen(config.PORT, () => {
         logger.info(`🚀 Server running on http://localhost:${config.PORT}`);
         logger.info(`🚀 GraphQL endpoint: http://localhost:${config.PORT}/graphql`);
+        
+        // Start Advanced Email Scheduler
+        EmailScheduler.start();
         
         if (config.REDIS_URL !== 'internal') {
             import('./jobs/worker').then(({ setupCronJobs }) => {

@@ -112,3 +112,17 @@ model InboxEmail {
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model ScheduledEmail {
+  id          String   @id @default(uuid())
+  userId      String
+  fromEmail   String
+  toEmails     String[]
+  subject     String
+  body        String
+  scheduledAt DateTime
+  status      String   @default("PENDING") // PENDING, SENT, FAILED
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
