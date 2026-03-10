@@ -126,28 +126,38 @@ export class AIController {
             }
 
             const now = new Date().toISOString();
-            const aiPrompt = `You are a faculty email assistant. 
-Current time: ${now}
+            const aiPrompt = `You are an elite faculty email assistant. 
+
+Instruction: "${prompt}"
+Current time context: ${now}
 
 Task:
-1. Write a professional academic email based on: "${prompt}"
-2. Detect if the user specified a time/date to send this email. If so, convert it to an ISO string.
+1. Write a professional, concise academic email. DO NOT just repeat the instruction. Use a formal tone.
+2. Detect the intended Audience:
+   - If the user mentions "students", output "STUDENT".
+   - If "heads" or "HOD", output "HOD".
+   - If "faculty", output "FACULTY".
+   - Else null.
+3. Extract any specific send time/date mentioned. Convert to ISO string.
 
-Output ONLY valid JSON with this shape:
+Output ONLY a JSON object:
 {
-  "subject": "<short subject>",
-  "body": "<email body text>",
-  "scheduledAt": "<ISO string or null>"
+  "subject": "...",
+  "body": "...",
+  "audience": "STUDENT | HOD | FACULTY | null",
+  "scheduledAt": "ISO String | null"
 }
 
 Rules:
-- Body polite, under 180 words.
-- Output ONLY JSON. No markdown.`;
+- Subject: Compelling and clear.
+- Body: Professional, well-formatted, under 150 words.
+- NO markdown code fences. NO extra text.`;
 
             const raw = await callGemini(aiPrompt);
             let subject = 'Faculty Announcement';
-            let bodyText = prompt;
+            let bodyText = '';
             let scheduledAt: string | null = null;
+            let detectedAudience: string | null = null;
 
             if (raw) {
                 try {
@@ -156,9 +166,23 @@ Rules:
                     subject = parsed.subject || subject;
                     bodyText = parsed.body || bodyText;
                     scheduledAt = parsed.scheduledAt || null;
+                    detectedAudience = parsed.audience || null;
                 } catch (e) {
                     console.warn('Draft Gemini JSON fail', e);
                 }
+            }
+
+            // Fallback body if parsing fails or AI is empty
+            if (!bodyText) bodyText = `Regarding: ${prompt}`;
+
+            // Smarter recipient lookup if audience was detected and no recipients provided
+            if (targetEmails.length === 0 && detectedAudience) {
+                const users = await prisma.user.findMany({
+                    where: { role: detectedAudience.toUpperCase() }
+                });
+                targetEmails = users
+                    .map(u => u.email)
+                    .filter(email => email && email !== userEmail);
             }
 
             res.status(200).json({
@@ -167,7 +191,8 @@ Rules:
                     subject,
                     body: bodyText,
                     recipients: targetEmails,
-                    scheduledAt
+                    scheduledAt,
+                    detectedAudience
                 }
             });
         } catch (error) {
