@@ -122,6 +122,7 @@ function LoginPage({ onLogin }) {
     'sejalb@itm.edu',
     'pallavim@itm.edu',
     'Swapnilw@itm.edu',
+    'poonams@itm.edu',
   ];
 
   return (
