@@ -16,16 +16,18 @@ export class AuthService {
             throw new Error('Invalid Firebase token payload');
         }
 
+        const normalizedEmail = payload.email.toLowerCase().trim();
+
         let user = await prisma.user.findUnique({
-            where: { email: payload.email },
+            where: { email: normalizedEmail },
         });
 
         if (!user) {
             // Create a default faculty user or restrict if necessary in production
             user = await prisma.user.create({
                 data: {
-                    email: payload.email,
-                    name: payload.name || 'Unknown User',
+                    email: normalizedEmail,
+                    name: payload.name || normalizedEmail.split('@')[0],
                     googleId: payload.uid, // the user's firebase UID
                     role: 'FACULTY',
                     googleAccessToken: googleAccessToken || null,

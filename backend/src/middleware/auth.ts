@@ -13,6 +13,10 @@ export interface AuthenticatedRequest extends Request {
     user?: TokenPayload;
 }
 
+const isFacultyEmail = (email: string) => {
+    return email.toLowerCase().endsWith('@itm.edu') || email.toLowerCase().endsWith('@isu.ac.in');
+};
+
 export const authenticate: RequestHandler = async (req: any, res, next) => {
     const authHeader = req.headers.authorization;
     let token = null;
@@ -30,30 +34,48 @@ export const authenticate: RequestHandler = async (req: any, res, next) => {
     try {
         const decoded = verifyToken(token) as TokenPayload;
         
-        // Perspective Switching: Check if this user has a dev context set in DB
-        const dbUser = await prisma.user.findUnique({
+        // Root Fix: Better Identity Resolution
+        // 1. Try finding by ID
+        let dbUser = await prisma.user.findUnique({
             where: { id: decoded.id },
             select: { devModeContext: true, id: true, email: true, name: true, role: true }
         });
 
-        if (dbUser?.devModeContext) {
+        // 2. Fallback to Email if ID doesn't match (e.g. DB reset or record recreated)
+        // This is the "Root Fix" for stale session IDs
+        if (!dbUser && decoded.email) {
+            console.log(`[Auth] ID mismatch for ${decoded.email}. Attempting email-based fallback.`);
+            dbUser = await prisma.user.findUnique({
+                where: { email: decoded.email.toLowerCase() },
+                select: { devModeContext: true, id: true, email: true, name: true, role: true }
+            });
+        }
+
+        if (!dbUser) {
+            console.error(`[Auth] Fatal: Could not resolve identity for ${decoded.email}`);
+            return res.status(401).json({ success: false, error: 'User does not exist in registry' });
+        }
+
+        // Perspective Switching: Check if this user has a dev context set in DB
+        if (dbUser.devModeContext) {
             try {
                 const context = JSON.parse(dbUser.devModeContext);
                 if (context && context.email) {
                     // Overwrite the request user identity with the mocked faculty member
-                    // We also need to find the actual database ID for the mocked email to ensure filters work
                     const mockedUser = await prisma.user.findUnique({
                         where: { email: context.email.toLowerCase() }
                     });
 
                     req.user = {
                         ...decoded,
-                        id: mockedUser?.id || decoded.id, // Fallback to current ID if mocked user doesn't exist in DB yet
-                        email: context.email,
+                        id: mockedUser?.id || dbUser.id,
+                        email: context.email.toLowerCase(),
                         name: context.name || context.email.split('@')[0],
+                        role: mockedUser?.role || (isFacultyEmail(context.email) ? 'FACULTY' : decoded.role),
                         isMocked: true,
-                        realUserId: decoded.id
+                        realUserId: dbUser.id
                     };
+                    console.log(`[Auth] Perspective Switch: ${dbUser.email} -> ${req.user.email} (${req.user.role})`);
                     return next();
                 }
             } catch (e) {
@@ -61,7 +83,12 @@ export const authenticate: RequestHandler = async (req: any, res, next) => {
             }
         }
 
-        req.user = decoded;
+        // Ensure we use the FRESH dbUser ID and role even if not mocked
+        req.user = {
+            ...decoded,
+            id: dbUser.id,
+            role: dbUser.role
+        };
         next();
     } catch (error) {
         return res.status(401).json({ success: false, error: 'Invalid token' });

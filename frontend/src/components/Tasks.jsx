@@ -4,12 +4,12 @@ import { API_URL } from '../config';
 import { fetchWithAuth, getAvatarUrl } from '../utils/api';
 
 export default function Tasks() {
-    const { currentUser, devUser } = useAuth();
+    const { currentUser, devUser, backendUser } = useAuth();
     const [filter, setFilter] = useState('All');
     const [allTasks, setAllTasks] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const userEmail = (currentUser?.email || devUser?.email || '').toLowerCase();
+    const userEmail = (devUser?.email || currentUser?.email || backendUser?.email || '').toLowerCase();
 
     useEffect(() => {
         const fetchTasks = async () => {

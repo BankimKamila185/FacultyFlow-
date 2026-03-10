@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { fetchWithAuth, getAvatarUrl } from '../utils/api';
 
 export default function Workflow() {
-  const { currentUser, devUser } = useAuth();
+  const { currentUser, devUser, backendUser } = useAuth();
   const [rawTasks, setRawTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [suggestion, setSuggestion] = useState(null);
@@ -26,7 +26,7 @@ export default function Workflow() {
   const clearSuggestion = () => setSuggestion(null);
   const [showToast, setShowToast] = useState(false);
 
-  const userEmail = (currentUser?.email || devUser?.email || '').toLowerCase();
+  const userEmail = (devUser?.email || currentUser?.email || backendUser?.email || '').toLowerCase();
 
   // 4 Columns matching the provided image
   // 4 Columns matching the status transitions
@@ -43,6 +43,7 @@ export default function Workflow() {
       try {
         const res = await fetchWithAuth(`${API_URL}/tasks`);
         const data = await res.json();
+        console.log(`[Workflow] Fetched tasks: ${data.data?.length || 0}. User: ${userEmail}`);
         if (data.success) {
           const mappedTasks = data.data.map((task, idx) => {
             const isMe = task.assignedTo?.email?.toLowerCase() === userEmail || 

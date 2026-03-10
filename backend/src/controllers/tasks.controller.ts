@@ -77,6 +77,8 @@ export const getAllTasks = async (req: Request, res: Response): Promise<void> =>
             ]
         } : {};
 
+        console.log(`[Tasks] getAllTasks for ${user?.email}. Role: ${user?.role}. isFaculty: ${isFaculty}. Query:`, JSON.stringify(whereClause));
+
         const tasks = await prisma.task.findMany({
             where: whereClause,
             include: {
