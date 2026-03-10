@@ -107,6 +107,7 @@ export class AIController {
         try {
             const user = (req as any).user;
             const userEmail = user?.email;
+            const userName = user?.name || userEmail?.split('@')[0] || 'Faculty Member';
 
             if (!userEmail) {
                 res.status(401).json({ success: false, message: 'Not authenticated' });
@@ -132,6 +133,70 @@ export class AIController {
             }
 
             let recipients = targetEmails;
+
+            // Fast offline fallback if Gemini API key is missing.
+            // This avoids ugly "Regarding your request..." drafts in local/dev.
+            if (!GEMINI_API_KEY) {
+                const normalized = String(prompt).trim();
+                const lower = normalized.toLowerCase();
+
+                let detectedAudience: string | null = null;
+                if (lower.match(/\bstudent|class|exam|lecture|semester\b/)) {
+                    detectedAudience = 'STUDENT';
+                } else if (lower.match(/\bhod\b|head of department|chair\b/)) {
+                    detectedAudience = 'HOD';
+                } else if (lower.match(/\bfaculty|colleague|professor|staff\b/)) {
+                    detectedAudience = 'FACULTY';
+                }
+
+                // Subject: first sentence or a truncated version of the prompt
+                const firstSentence = normalized.split(/[.?!]/)[0].trim();
+                let subject = firstSentence
+                    ? firstSentence.charAt(0).toUpperCase() + firstSentence.slice(1)
+                    : 'Faculty Announcement';
+                if (subject.length > 90) {
+                    subject = subject.slice(0, 87).trimEnd() + '...';
+                }
+
+                // Simple polite email body
+                let greeting = 'Dear All,';
+                if (detectedAudience === 'STUDENT') greeting = 'Dear Students,';
+                else if (detectedAudience === 'HOD') greeting = 'Dear Head of Department,';
+                else if (detectedAudience === 'FACULTY') greeting = 'Dear Faculty,';
+
+                const bodyText =
+`Subject: ${subject}
+
+${greeting}
+
+${normalized.charAt(0).toUpperCase() + normalized.slice(1)}
+
+Thank you.
+
+Best regards,
+${userName}`;
+
+                const roleToLookup = audienceRole || detectedAudience;
+                if (recipients.length === 0 && roleToLookup) {
+                    const users = await prisma.user.findMany({
+                        where: { role: roleToLookup.toUpperCase() }
+                    });
+                    recipients = users
+                        .map(u => u.email)
+                        .filter(email => email && email !== userEmail);
+                }
+
+                return res.status(200).json({
+                    success: true,
+                    data: {
+                        subject,
+                        body: bodyText,
+                        recipients,
+                        scheduledAt: null,
+                        detectedAudience: detectedAudience || audienceRole
+                    }
+                });
+            }
 
             // Performance: If prompt is just for lookup, skip Gemini
             if (prompt === 'Lookup only' && audienceRole) {
