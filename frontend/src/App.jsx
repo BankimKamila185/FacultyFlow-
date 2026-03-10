@@ -13,6 +13,7 @@ import GoogleTools from './components/GoogleTools';
 import Notifications from './components/Notifications';
 import UserProfile from './components/UserProfile';
 import PromptEmail from './components/PromptEmail';
+import AdminDashboard from './components/AdminDashboard';
 
 // ─── Nav Icons ───────────────────────────────────────────────────────────────
 const icons = {
@@ -87,6 +88,11 @@ const icons = {
       <path d="M4 4h16v16H4z" />
       <polyline points="4 6 12 13 20 6" />
       <path d="M9 18h6" />
+    </svg>
+  ),
+  'Admin Panel': (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
     </svg>
   ),
 };
@@ -204,10 +210,6 @@ export default function App() {
   const [searchResults, setSearchResults] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
   
-  // Admin View As Faculty State
-  const [facultyList, setFacultyList] = useState([]);
-  const [viewingAsEmail, setViewingAsEmail] = useState('');
-  
   // Toast Notification System
   const [toast, setToast] = useState(null);
 
@@ -257,20 +259,6 @@ export default function App() {
   
   const userRole = (effectiveUser?.role || 'FACULTY').toUpperCase();
   const isAdmin = userRole === 'ADMIN' || userRole === 'HOD';
-
-  useEffect(() => {
-    if (isAdmin && backendToken) {
-      fetchWithAuth(`${API_URL}/users`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                // Return just id, name, and email for the dropdown
-                setFacultyList(data.data.map(f => ({ id: f.id, name: f.name, email: f.email })));
-            }
-        })
-        .catch(err => console.error("Failed to fetch faculty list", err));
-    }
-  }, [isAdmin, backendToken]);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -356,6 +344,7 @@ export default function App() {
     'Projects',
     'My Task',
     'Inbox',
+    ...(isAdmin ? ['Admin Panel'] : []),
     'Student Queries',
     'AI Mail',
     'Workspace',
@@ -539,31 +528,6 @@ export default function App() {
 
           {/* Actions Pods */}
           <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-            
-            {/* View As Faculty Selector (Admin Only) */}
-            {isAdmin && (
-              <select 
-                value={viewingAsEmail}
-                onChange={(e) => setViewingAsEmail(e.target.value)}
-                style={{
-                  background: 'var(--bg-card)',
-                  color: viewingAsEmail ? 'var(--primary)' : 'var(--text-main)',
-                  border: `1px solid ${viewingAsEmail ? 'var(--primary)' : 'var(--border-color)'}`,
-                  padding: '0.6rem 1rem',
-                  borderRadius: '12px',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  outline: 'none',
-                  cursor: 'pointer',
-                  boxShadow: 'var(--shadow-sm)'
-                }}
-              >
-                <option value="">Viewing: My Own Account</option>
-                {facultyList.map(f => (
-                  <option key={f.id} value={f.email}>View As: {f.name}</option>
-                ))}
-              </select>
-            )}
 
             <button className="btn-notify" style={{ 
               width: '60px', height: '60px', borderRadius: '20px', 
@@ -608,9 +572,10 @@ export default function App() {
           border: '1px solid var(--border-color)',
           transition: 'background 0.3s ease, border-color 0.3s ease'
         }}>
-          {activeTab === 'Dashboard' && <Dashboard setActiveTab={setActiveTab} viewingAsEmail={viewingAsEmail} />}
+          {activeTab === 'Dashboard' && <Dashboard setActiveTab={setActiveTab} />}
           {activeTab === 'Profile' && <UserProfile theme={theme} toggleTheme={toggleTheme} />}
-          {activeTab === 'My Task' && <Tasks viewingAsEmail={viewingAsEmail} />}
+          {activeTab === 'My Task' && <Tasks />}
+          {isAdmin && activeTab === 'Admin Panel' && <AdminDashboard setActiveTab={setActiveTab} />}
           {activeTab === 'Projects' && <Workflow />}
           {activeTab === 'Inbox' && <Inbox />}
           {activeTab === 'Student Queries' && <StudentQueries />}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { fetchWithAuth, getAvatarUrl } from '../utils/api';
 
-export default function Dashboard({ setActiveTab, viewingAsEmail }) {
+export default function Dashboard({ setActiveTab }) {
     const [workflows, setWorkflows] = useState([]);
     const [tasks, setTasks] = useState([]);
     const [myTasks, setMyTasks] = useState([]);
@@ -20,15 +20,13 @@ export default function Dashboard({ setActiveTab, viewingAsEmail }) {
                 fetchWithAuth(`${API_URL}/sync`, { method: 'POST' }).catch(e => console.error("Sync error:", e));
             }
 
-            const queryParams = viewingAsEmail ? `?email=${encodeURIComponent(viewingAsEmail)}` : '';
-
             const [wfRes, myTasksRes, allTasksRes, notifRes, inboxRes, metricsRes] = await Promise.all([
-                fetchWithAuth(`${API_URL}/workflows/progress${queryParams}`),
-                fetchWithAuth(`${API_URL}/tasks/my${queryParams}`),
-                fetchWithAuth(`${API_URL}/tasks${queryParams}`),
-                fetchWithAuth(`${API_URL}/notifications${queryParams}`),
-                fetchWithAuth(`${API_URL}/inbox${queryParams}`),
-                fetchWithAuth(`${API_URL}/analytics/dashboard${queryParams}`),
+                fetchWithAuth(`${API_URL}/workflows/progress`),
+                fetchWithAuth(`${API_URL}/tasks/my`),
+                fetchWithAuth(`${API_URL}/tasks`),
+                fetchWithAuth(`${API_URL}/notifications`),
+                fetchWithAuth(`${API_URL}/inbox`),
+                fetchWithAuth(`${API_URL}/analytics/dashboard`),
             ]);
             
             const [wfData, myTasksData, allTasksData, notifData, inboxData, metricsData] = await Promise.all([
@@ -62,7 +60,7 @@ export default function Dashboard({ setActiveTab, viewingAsEmail }) {
         fetchData(true); // Initial sync + fetch
         const interval = setInterval(() => fetchData(false), 30000);
         return () => clearInterval(interval);
-    }, [viewingAsEmail]);
+    }, []);
 
     // Accurate metrics from dedicated endpoint
     const stats = {
