@@ -4,10 +4,11 @@ import { prisma } from '../models/prisma';
 import { generateToken } from '../utils/jwt';
 
 const setAuthCookie = (res: Response, token: string) => {
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('auth_token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        secure: isProd, // Must be true for SameSite=None
+        sameSite: isProd ? 'none' : 'lax', // 'none' allows cross-site cookies
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 };

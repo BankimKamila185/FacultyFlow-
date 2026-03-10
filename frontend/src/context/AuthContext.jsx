@@ -57,6 +57,7 @@ export function AuthProvider({ children }) {
                     const data = await res.json();
                     if (data.success) {
                         setBackendToken(true);
+                        if (data.data.token) localStorage.setItem('auth_token', data.data.token);
                         setBackendUser(data.data.user);
                         setDevUser(data.data.user.devModeContext ? JSON.parse(data.data.user.devModeContext) : null);
                     }
@@ -92,6 +93,7 @@ export function AuthProvider({ children }) {
             const data = await res.json();
             if (data.success) {
                 setBackendToken(true);
+                if (data.data.token) localStorage.setItem('auth_token', data.data.token);
                 setBackendUser(data.data.user);
                 setDevUser(data.data.user.devModeContext ? JSON.parse(data.data.user.devModeContext) : null);
             } else {
@@ -116,8 +118,8 @@ export function AuthProvider({ children }) {
             const data = await res.json();
             if (data.success) {
                 setBackendToken(true);
+                if (data.data.token) localStorage.setItem('auth_token', data.data.token);
                 setBackendUser(data.data.user);
-                setDevUser(data.data.user.devModeContext ? JSON.parse(data.data.user.devModeContext) : null);
                 return data.data.user;
             } else {
                 throw new Error(data.error);
@@ -152,6 +154,7 @@ export function AuthProvider({ children }) {
         setBackendToken(null);
         setBackendUser(null);
         setDevUser(null);
+        localStorage.removeItem('auth_token');
     };
 
     const value = {
