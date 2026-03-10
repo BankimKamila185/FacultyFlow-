@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
 import { fetchWithAuth, getAvatarUrl } from '../utils/api';
 
-export default function Tasks() {
+export default function Tasks({ viewingAsEmail }) {
     const { currentUser, devUser, backendUser } = useAuth();
     const [filter, setFilter] = useState('All');
     const [allTasks, setAllTasks] = useState([]);
@@ -11,11 +11,16 @@ export default function Tasks() {
     const [aiProcessing, setAiProcessing] = useState(false);
 
     const userEmail = (devUser?.email || currentUser?.email || backendUser?.email || '').toLowerCase();
+    
+    // Admin check
+    const userRole = (devUser?.role || currentUser?.role || backendUser?.role || 'FACULTY').toUpperCase();
+    const isAdmin = userRole === 'ADMIN' || userRole === 'HOD';
 
     useEffect(() => {
         const fetchTasks = async () => {
             try {
-                const res = await fetchWithAuth(`${API_URL}/tasks`);
+                const queryParams = viewingAsEmail ? `?email=${encodeURIComponent(viewingAsEmail)}` : '';
+                const res = await fetchWithAuth(`${API_URL}/tasks${queryParams}`);
                 const data = await res.json();
                 if (data.success) {
                     const mappedTasks = data.data.map((task, idx) => {
@@ -53,7 +58,7 @@ export default function Tasks() {
         fetchTasks();
         const interval = setInterval(fetchTasks, 30000);
         return () => clearInterval(interval);
-    }, [userEmail]);
+    }, [userEmail, viewingAsEmail]);
 
     const updateTaskStatus = async (taskId, newStatus) => {
         try {
@@ -76,6 +81,23 @@ export default function Tasks() {
             }
         } catch (err) {
             console.error("Error updating status:", err);
+        }
+    };
+
+    const handleAskReason = async (taskId) => {
+        try {
+            const res = await fetchWithAuth(`${API_URL}/tasks/${taskId}/ask-reason`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("Reason requested successfully.");
+            } else {
+                alert(data.message || "Failed to ask reason.");
+            }
+        } catch (err) {
+            console.error("Error asking reason:", err);
+            alert("An error occurred while asking for reason.");
         }
     };
 
@@ -253,6 +275,14 @@ export default function Tasks() {
                                         onClick={() => updateTaskStatus(task.id, 'IN_PROGRESS')}
                                         className="btn-action btn-initiate">
                                         Initiate Action
+                                    </button>
+                                )}
+                                {isAdmin && task.status === 'DELAYED' && viewingAsEmail && (
+                                    <button 
+                                        onClick={() => handleAskReason(task.id)}
+                                        className="btn-action"
+                                        style={{ background: '#EF4444', color: 'white', boxShadow: '0 2px 8px rgba(239, 68, 68, 0.15)' }}>
+                                        Ask Reason
                                     </button>
                                 )}
                             </div>

@@ -8,7 +8,15 @@ import { prisma } from '../models/prisma';
  */
 export const getMyTasks = async (req: Request, res: Response): Promise<void> => {
     try {
-        const userEmail = (req as any).user?.email;
+        const user = (req as any).user;
+        let userEmail = user?.email;
+        
+        // If an admin requests a specific email via query parameter, use that instead
+        const requestedEmail = req.query.email as string;
+        if (requestedEmail && (user?.role === 'ADMIN' || user?.role === 'HOD')) {
+            userEmail = requestedEmail;
+        }
+
         if (!userEmail) {
             res.status(401).json({ success: false, message: 'Not authenticated' });
             return;
@@ -69,13 +77,27 @@ export const getMyTasks = async (req: Request, res: Response): Promise<void> => 
 export const getAllTasks = async (req: Request, res: Response): Promise<void> => {
     try {
         const user = (req as any).user;
-        const isFaculty = user?.role?.toUpperCase() === 'FACULTY';
-        const whereClause = isFaculty ? {
-            OR: [
-                { assignedToId: user.id },
-                { responsibles: { some: { email: user.email?.toLowerCase() } } }
-            ]
-        } : {};
+        let isFaculty = user?.role?.toUpperCase() === 'FACULTY';
+        
+        // Admin View Override
+        const requestedEmail = req.query.email as string;
+        let whereClause: any = {};
+        
+        if (requestedEmail && (user?.role === 'ADMIN' || user?.role === 'HOD')) {
+            // Force faculty view logic but for the requested email
+            whereClause = {
+                OR: [
+                    { responsibles: { some: { email: requestedEmail.toLowerCase() } } }
+                ]
+            };
+        } else if (isFaculty) {
+            whereClause = {
+                OR: [
+                    { assignedToId: user.id },
+                    { responsibles: { some: { email: user.email?.toLowerCase() } } }
+                ]
+            };
+        }
 
         console.log(`[Tasks] getAllTasks for ${user?.email}. Role: ${user?.role}. isFaculty: ${isFaculty}. Query:`, JSON.stringify(whereClause));
 

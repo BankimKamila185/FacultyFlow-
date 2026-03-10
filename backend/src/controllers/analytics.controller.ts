@@ -9,9 +9,20 @@ export class AnalyticsController {
                 return res.status(401).json({ success: false, message: 'Identity required for analytics' });
             }
             
-            // ALWAYS filter for personalized metrics based on current user
-            // "Project Total" (globalTotal) is handled inside the service separately
-            const filter = { userId: user.id, email: user.email };
+            let filterEmail = user.email;
+            let filterUserId = user.id;
+
+            const requestedEmail = req.query.email as string;
+            if (requestedEmail && (user?.role === 'ADMIN' || user?.role === 'HOD')) {
+                filterEmail = requestedEmail.toLowerCase();
+                // If we need the actual user ID for that email, we might have to fetch it, but 
+                // AnalyticsService mostly relies on email for responsibles matching anyway.
+                // It's safer to just nullify the target ID to force fallback to email.
+                filterUserId = undefined; 
+            }
+
+            // ALWAYS filter for personalized metrics based on current user or requested view
+            const filter = { userId: filterUserId, email: filterEmail };
             
             console.log(`[Analytics] Fetching for User: ${user?.email} (${user?.id})`);
             const metrics = await AnalyticsService.getDashboardMetrics(filter);
