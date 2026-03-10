@@ -165,7 +165,16 @@ export const syncInbox = async (req: Request, res: Response): Promise<void> => {
             const headers = fullMsg.data.payload?.headers || [];
             const getHeader = (name: string) => headers.find((h: any) => h.name?.toLowerCase() === name.toLowerCase())?.value || '';
 
-            const fromEmail = getHeader('From');
+            const fromHeader = getHeader('From');
+            let fromEmail = fromHeader;
+            let fromName = fromHeader;
+
+            const nameMatch = fromHeader.match(/^(.*?)\s*<.*?>/);
+            const emailMatch = fromHeader.match(/<(.*?)>/);
+
+            if (nameMatch) fromName = nameMatch[1].replace(/"/g, '').trim();
+            if (emailMatch) fromEmail = emailMatch[1].trim();
+
             const toEmail = getHeader('To');
             const subject = getHeader('Subject') || '(No Subject)';
             const dateStr = getHeader('Date');
@@ -181,6 +190,7 @@ export const syncInbox = async (req: Request, res: Response): Promise<void> => {
                 data: {
                     gmailId: msg.id,
                     fromEmail,
+                    fromName,
                     toEmail,
                     subject,
                     bodySnippet,
@@ -231,7 +241,11 @@ export const getInbox = async (req: Request, res: Response): Promise<void> => {
 
         const where: any = { userId: dbUser.id };
         if (category && category !== 'all') {
-            where.category = category;
+            if (category.includes(',')) {
+                where.category = { in: category.split(',') };
+            } else {
+                where.category = category;
+            }
         }
 
         const emails = await prisma.inboxEmail.findMany({

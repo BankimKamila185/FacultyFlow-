@@ -98,6 +98,7 @@ model InboxEmail {
   id          String   @id @default(uuid())
   gmailId     String   @unique
   fromEmail   String
+  fromName    String?
   toEmail     String
   subject     String
   bodySnippet String

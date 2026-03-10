@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import StudentQueries from './StudentQueries';
+import ApprovalRequests from './ApprovalRequests';
+import FacultyCommunication from './FacultyCommunication';
 
 export default function Gmail() {
     const [activeSegment, setActiveSegment] = useState('Queries');
@@ -32,23 +34,19 @@ export default function Gmail() {
                         </div>
                     ))}
                 </div>
-                <button className="btn-primary" style={{ background: '#EA4335' }}>+ Compose</button>
+                <button 
+                    className="btn-primary" 
+                    style={{ background: '#EA4335' }}
+                    onClick={() => window.open('https://mail.google.com/mail/u/0/#inbox?compose=new', '_blank')}
+                >
+                    + Compose
+                </button>
             </div>
 
             <div className="gmail-content">
                 {activeSegment === 'Queries' && <StudentQueries />}
-                {activeSegment === 'Approvals' && (
-                    <div className="placeholder-box">
-                        <h3>No Pending Approvals</h3>
-                        <p style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>All requests have been processed.</p>
-                    </div>
-                )}
-                {activeSegment === 'Faculty' && (
-                    <div className="placeholder-box">
-                        <h3>Faculty Inbox</h3>
-                        <p style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>Your department announcements and personal academic messages.</p>
-                    </div>
-                )}
+                {activeSegment === 'Approvals' && <ApprovalRequests />}
+                {activeSegment === 'Faculty' && <FacultyCommunication />}
             </div>
         </div>
     );

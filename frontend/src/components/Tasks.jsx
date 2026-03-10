@@ -82,7 +82,7 @@ export default function Tasks() {
     const handleAISuggest = async () => {
         setAiProcessing(true);
         try {
-            const res = await fetchWithAuth(`${API_URL}/ai/suggest`, { method: 'POST' });
+            const res = await fetchWithAuth(`${API_URL}/ai/suggest`);
             const data = await res.json();
             if (data.success) {
                 // Refresh tasks after suggestion

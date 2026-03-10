@@ -1,39 +1,65 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
+import { fetchWithAuth } from '../utils/api';
 
-const mockDocs = [
-    { id: '1', title: 'Faculty Handbook 2025-26', modified: '2 hours ago', owner: 'Dean\'s Office', icon: '📄', color: '#4285F4' },
-    { id: '2', title: 'Curriculum Review Notes', modified: 'Yesterday', owner: 'Dr. Sarah Jenkins', icon: '📝', color: '#34A853' },
-    { id: '3', title: 'Research Grant Proposal', modified: '3 days ago', owner: 'Prof. Michael Chen', icon: '📋', color: '#FBBC04' },
-    { id: '4', title: 'Meeting Minutes - Q1 2026', modified: '1 week ago', owner: 'Admin', icon: '📃', color: '#EA4335' },
-    { id: '5', title: 'Academic Policy Updates', modified: '2 weeks ago', owner: 'Committee', icon: '📜', color: '#9c27b0' },
-];
+// Mocks removed for live integration
 
 export default function GoogleDocs() {
     const { backendToken } = useAuth();
+    const [docs, setDocs] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [newDoc, setNewDoc] = useState({ title: '', content: '' });
     const [creating, setCreating] = useState(false);
     const [status, setStatus] = useState(null);
     const [search, setSearch] = useState('');
 
-    const filtered = mockDocs.filter(d => d.title.toLowerCase().includes(search.toLowerCase()));
+    const fetchDocs = async () => {
+        try {
+            const res = await fetchWithAuth(`${API_URL}/drive/files`);
+            const data = await res.json();
+            if (data.success) {
+                const docFiles = data.data
+                    .filter(f => f.mimeType === 'application/vnd.google-apps.document')
+                    .map(f => ({
+                        id: f.id,
+                        title: f.name,
+                        modified: new Date(f.modifiedTime).toLocaleDateString(),
+                        owner: 'Me',
+                        icon: '📄',
+                        color: '#4285F4'
+                    }));
+                setDocs(docFiles);
+            }
+        } catch (err) {
+            console.error("Error fetching docs:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchDocs();
+    }, []);
+
+    const filtered = docs.filter(d => d.title.toLowerCase().includes(search.toLowerCase()));
 
     const handleCreateDoc = async () => {
         if (!newDoc.title) return;
         setCreating(true);
         try {
-            const res = await fetch(`${API_URL}/api/integrations/docs/create`, {
+            const res = await fetchWithAuth(`${API_URL}/drive/docs`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${backendToken}` },
                 body: JSON.stringify({ title: newDoc.title, content: newDoc.content }),
             });
             const data = await res.json();
-            if (data.success) setStatus({ type: 'success', message: `Document "${newDoc.title}" created in Google Docs!` });
-            else setStatus({ type: 'error', message: data.error || 'Failed to create document' });
+            if (data.success) {
+                setStatus({ type: 'success', message: `Document "${newDoc.title}" created!` });
+                fetchDocs();
+            } else setStatus({ type: 'error', message: data.error || 'Failed to create document' });
         } catch {
-            setStatus({ type: 'success', message: `Document "${newDoc.title}" created! (Demo mode)` });
+            setStatus({ type: 'error', message: "Connection failed." });
         }
         setCreating(false);
         setShowModal(false);

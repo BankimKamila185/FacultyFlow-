@@ -43,6 +43,7 @@ export default function Dashboard({ setActiveTab }) {
             if (allTasksData.success) {
                 setTasks(allTasksData.data);
             }
+            if (inboxData.success) setInbox(inboxData.data.slice(0, 10));
             if (metricsData.success) {
                 setMetrics(metricsData.data);
             }

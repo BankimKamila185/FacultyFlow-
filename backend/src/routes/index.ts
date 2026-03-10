@@ -12,6 +12,8 @@ import searchRoutes from './search.routes';
 import driveRoutes from './drive.routes';
 import workflowsRoutes from './workflows.routes';
 import aiRoutes from './ai.routes';
+import sheetsRoutes from './sheets.routes';
+import formsRoutes from './forms.routes';
 
 const router = Router();
 
@@ -27,6 +29,8 @@ router.use('/search', searchRoutes);
 router.use('/drive', driveRoutes);
 router.use('/workflows', workflowsRoutes);
 router.use('/ai', aiRoutes);
+router.use('/integrations/sheets', sheetsRoutes);
+router.use('/integrations/forms', formsRoutes);
 
 
 // Health check

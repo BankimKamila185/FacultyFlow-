@@ -1,34 +1,63 @@
-import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../config';
+import { fetchWithAuth } from '../utils/api';
 
-const mockForms = [
-    { id: '1', title: 'Faculty Research Interest Survey', responses: 24, status: 'Active', color: '#673AB7' },
-    { id: '2', title: 'Student Feedback - CS101', responses: 156, status: 'Closed', color: '#9C27B0' },
-    { id: '3', title: 'Department Event RSVP', responses: 42, status: 'Active', color: '#7E57C2' },
-    { id: '4', title: 'Grant Application Intake', responses: 8, status: 'Active', color: '#5E35B1' },
-];
+// Mocks removed for live integration
 
 export default function GoogleForms() {
     const { backendToken } = useAuth();
+    const [forms, setForms] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [newForm, setNewForm] = useState({ title: '', description: '' });
     const [creating, setCreating] = useState(false);
     const [status, setStatus] = useState(null);
     const [search, setSearch] = useState('');
 
-    const filtered = mockForms.filter(f => f.title.toLowerCase().includes(search.toLowerCase()));
+    const fetchForms = async () => {
+        try {
+            const res = await fetchWithAuth(`${API_URL}/integrations/forms`);
+            const data = await res.json();
+            if (data.success) {
+                setForms(data.data.map(f => ({
+                    ...f,
+                    color: '#673AB7',
+                    responses: '?' 
+                })));
+            }
+        } catch (err) {
+            console.error("Error fetching forms:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchForms();
+    }, []);
+
+    const filtered = forms.filter(f => f.title.toLowerCase().includes(search.toLowerCase()));
 
     const handleCreateForm = async () => {
         if (!newForm.title) return;
         setCreating(true);
-        // Simulate API call for now
-        setTimeout(() => {
-            setStatus({ type: 'success', message: `Form "${newForm.title}" created successfully!` });
-            setCreating(false);
-            setShowModal(false);
-            setNewForm({ title: '', description: '' });
-            setTimeout(() => setStatus(null), 4000);
-        }, 1500);
+        try {
+            const res = await fetchWithAuth(`${API_URL}/integrations/forms/create`, {
+                method: 'POST',
+                body: JSON.stringify({ title: newForm.title, description: newForm.description }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setStatus({ type: 'success', message: `Form "${newForm.title}" launched!` });
+                fetchForms();
+            } else setStatus({ type: 'error', message: data.error || 'Failed to create form' });
+        } catch {
+            setStatus({ type: 'error', message: "Connection failed." });
+        }
+        setCreating(false);
+        setShowModal(false);
+        setNewForm({ title: '', description: '' });
+        setTimeout(() => setStatus(null), 4000);
     };
 
     return (

@@ -73,8 +73,8 @@ export default function Workflow() {
               description: task.description || '',
               isMe,
               others,
-              files: (hash % 4) + 1,
-              comments: (hash % 6) + 2
+              files: 0, // Not yet implemented in DB
+              comments: 0 // Not yet implemented in DB
             };
           });
           setRawTasks(mappedTasks);
