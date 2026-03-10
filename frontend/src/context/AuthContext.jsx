@@ -44,7 +44,10 @@ export function AuthProvider({ children }) {
 
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
-            if (user && !backendToken && !isLoggingIn.current) {
+            
+            const manuallyLoggedOut = localStorage.getItem('manually_logged_out') === 'true';
+
+            if (user && !backendToken && !isLoggingIn.current && !manuallyLoggedOut) {
                 try {
                     isLoggingIn.current = true;
                     const idToken = await user.getIdToken();
@@ -92,6 +95,7 @@ export function AuthProvider({ children }) {
 
             const data = await res.json();
             if (data.success) {
+                localStorage.removeItem('manually_logged_out');
                 setBackendToken(true);
                 if (data.data.token) localStorage.setItem('auth_token', data.data.token);
                 setBackendUser(data.data.user);
@@ -117,6 +121,7 @@ export function AuthProvider({ children }) {
             });
             const data = await res.json();
             if (data.success) {
+                localStorage.removeItem('manually_logged_out');
                 setBackendToken(true);
                 if (data.data.token) localStorage.setItem('auth_token', data.data.token);
                 setBackendUser(data.data.user);
@@ -146,6 +151,7 @@ export function AuthProvider({ children }) {
 
     const logout = async () => {
         try {
+            localStorage.setItem('manually_logged_out', 'true');
             await firebaseSignOut(auth);
             await fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
         } catch (err) {

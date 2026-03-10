@@ -94,7 +94,12 @@ export class AuthController {
 
     static async logout(req: Request, res: Response, next: NextFunction) {
         try {
-            res.clearCookie('auth_token');
+            const isProd = process.env.NODE_ENV === 'production';
+            res.clearCookie('auth_token', {
+                httpOnly: true,
+                secure: isProd,
+                sameSite: isProd ? 'none' : 'lax'
+            });
             res.status(200).json({ success: true, message: 'Logged out successfully' });
         } catch (error) {
             next(error);
