@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import StudentQueries from './StudentQueries';
 import ApprovalRequests from './ApprovalRequests';
 import FacultyCommunication from './FacultyCommunication';
 
 export default function Gmail() {
-    const [activeSegment, setActiveSegment] = useState('Queries');
+    const [activeSegment, setActiveSegment] = useState('Approvals');
 
-    const segments = ['Queries', 'Approvals', 'Faculty'];
+    const segments = ['Approvals', 'Faculty'];
 
     return (
         <div className="gmail-container">
@@ -30,7 +29,7 @@ export default function Gmail() {
                             className={`segment-tab ${activeSegment === s ? 'active' : ''}`}
                             onClick={() => setActiveSegment(s)}
                         >
-                            {s === 'Queries' ? 'Student Queries' : s === 'Approvals' ? 'Approval Requests' : 'Faculty Communication'}
+                            {s === 'Approvals' ? 'Approval Requests' : 'Faculty Communication'}
                         </div>
                     ))}
                 </div>
@@ -44,7 +43,6 @@ export default function Gmail() {
             </div>
 
             <div className="gmail-content">
-                {activeSegment === 'Queries' && <StudentQueries />}
                 {activeSegment === 'Approvals' && <ApprovalRequests />}
                 {activeSegment === 'Faculty' && <FacultyCommunication />}
             </div>
