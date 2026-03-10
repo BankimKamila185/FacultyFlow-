@@ -38,15 +38,17 @@ const TYPE_META = {
     DOC:   { label: 'GOOGLE DOC',   accent: '#4285F4', icon: '📄' },
     FORM:  { label: 'GOOGLE FORM',  accent: '#FBBC05', icon: '📋' },
     SUMMARY: { label: 'EMAIL SUMMARY', accent: '#A855F7', icon: '✉️' },
+    TASK:  { label: 'PERSONAL TASK', accent: '#8B5CF6', icon: '✅' },
 };
 
 /* ─── Suggestion chips shown on empty state ────────────────────────────────── */
 const SUGGESTIONS = [
-    'Send reminder to students about tomorrow\'s lab at 9am',
+    'Remind me to submit the progress report by tomorrow 5pm',
     'Create an Excel sheet for student attendance',
     'Create a feedback form for students',
     'Draft a notice document for hackathon',
     'Summarise my recent emails',
+    'Set a task to review the new curriculum by Friday',
 ];
 
 export default function AIAssistant() {
@@ -269,6 +271,35 @@ export default function AIAssistant() {
                 </div>
                 <div className="ai-card-content">
                     <div className="summary-text">{data.summary}</div>
+                </div>
+            </div>
+        );
+    };
+
+    /* ─── TASK card ────────────────────────────────────────────────────────── */
+    const TaskCard = ({ msg }) => {
+        const { data } = msg;
+        const meta = TYPE_META.TASK;
+        return (
+            <div className="ai-card" style={{ borderTopColor: meta.accent }}>
+                <div className="ai-card-header">
+                    <span className="card-type-label" style={{ color: meta.accent }}>
+                        {meta.icon} {meta.label}
+                    </span>
+                </div>
+                <div className="ai-card-content">
+                    <div className="artifact-title">{data.title}</div>
+                    <div className="meta-item" style={{ marginBottom: '0.5rem' }}>
+                        <ClockIcon /> Status: {data.status}
+                    </div>
+                    {data.deadline && (
+                        <div className="meta-item">
+                            <ClockIcon /> Deadline: {new Date(data.deadline).toLocaleDateString()}
+                        </div>
+                    )}
+                </div>
+                <div className="ai-card-footer">
+                    <span className="status-badge created" style={{ background: `${meta.accent}22`, color: meta.accent }}>✓ Task Created</span>
                 </div>
             </div>
         );
@@ -585,8 +616,8 @@ export default function AIAssistant() {
                 {messages.length === 0 && (
                     <div className="empty-state">
                         <div>
-                            <h2 className="empty-title">✨ AI Assistant</h2>
-                            <p className="empty-sub">Type a prompt to send emails, create sheets, docs, forms, or summarise your inbox.</p>
+                            <h2 className="empty-title">✨ AI Chat Bot</h2>
+                            <p className="empty-sub">I'm your universal assistant. Ask me anything a to z.</p>
                         </div>
                         <div className="suggestion-chips">
                             {SUGGESTIONS.map((s, i) => (
@@ -608,6 +639,8 @@ export default function AIAssistant() {
                             <SummaryCard msg={msg} />
                         ) : msg.data?.type === 'CHAT' ? (
                             <ChatBubble msg={msg} />
+                        ) : msg.data?.type === 'TASK' ? (
+                            <TaskCard msg={msg} />
                         ) : (
                             <ArtifactCard msg={msg} />
                         )}
@@ -619,7 +652,7 @@ export default function AIAssistant() {
                         <div className="dot-pulse">
                             <span /><span /><span />
                         </div>
-                        <span>Working on it…</span>
+                        <span>Thinking...</span>
                     </div>
                 )}
                 <div ref={messagesEndRef} />
@@ -635,7 +668,7 @@ export default function AIAssistant() {
                         ref={textareaRef}
                         className="chat-textarea"
                         rows={1}
-                        placeholder="e.g. send exam reminder to students at 9am tomorrow, create attendance sheet…"
+                        placeholder="e.g. remind me to submit report, create attendance sheet…"
                         value={currentPrompt}
                         onChange={handleTextareaInput}
                         onKeyDown={(e) => {

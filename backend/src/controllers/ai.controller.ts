@@ -443,24 +443,22 @@ A faculty member typed this instruction: "${prompt}"
 Current time: ${now}
 
 Classify their intent as EXACTLY one of these types:
-- EMAIL: They want to send, compose, draft, remind, or notify someone via email
-- SHEET: They want to create a spreadsheet, Excel, Google Sheet, table, list of data
-- DOC: They want to create a document, notice, letter, report, announcement (as a Google Doc)
 - FORM: They want to create a form, survey, quiz, feedback form, questionnaire
 - SUMMARY: They want to summarize, read, check, list or review their emails/inbox
+- TASK: They want to remind themselves of something, create a personal to-do, or schedule a task/reminder for themselves (no recipient mentioned)
 - CHAT: They are asking a general question, greeting you, or want an explanation/answer that doesn't require creating an artifact.
 
 Also extract:
 - audience: "STUDENT" | "HOD" | "FACULTY" | "ALL" | null (who to send/share with)
-- title: a short descriptive title for the artifact (sheet name, doc name, etc.)
-- scheduledAt: ISO-8601 datetime if a specific send time is mentioned, else null
+- title: a short descriptive title for the artifact (sheet name, doc name, task title, etc.)
+- scheduledAt: ISO-8601 datetime if a specific send time or deadline is mentioned, else null
 - subject: (for EMAIL only) the email subject
-- body: (for EMAIL only) the full professional email body
+- body: (for EMAIL/DOC only) the full content or task description
 - response: (for CHAT only) a direct, helpful answer to their question
 
 Respond ONLY with a single JSON object (no markdown, no backticks):
 {
-  "type": "EMAIL|SHEET|DOC|FORM|SUMMARY|CHAT",
+  "type": "EMAIL|SHEET|DOC|FORM|SUMMARY|CHAT|TASK",
   "audience": "STUDENT|HOD|FACULTY|ALL|null",
   "title": "string",
   "scheduledAt": "ISO-8601 or null",
@@ -511,6 +509,9 @@ Respond ONLY with a single JSON object (no markdown, no backticks):
                 } else if (lower.match(/\bwhat is\b|\bhow to\b|\bwho is\b|\bdate\b|\btime\b|\bhello\b|\bhi\b/)) {
                     type = 'CHAT';
                     chatResponse = `Today is ${new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
+                } else if (lower.match(/\btask\b|\bremind\b|\btodo\b|\bdo this\b/)) {
+                    type = 'TASK';
+                    title = prompt.replace(/\btask\b|\bremind me to\b|\btodo\b/gi, '').trim();
                 } else {
                     type = 'EMAIL';
                 }
@@ -544,6 +545,37 @@ Respond ONLY with a single JSON object (no markdown, no backticks):
                         response: chatResponse || "I'm not sure how to answer that, but I can help you draft emails or create documents."
                     }
                 });
+            }
+
+            // ── TASK ───────────────────────────────────────────────────────────
+            if (type === 'TASK') {
+                try {
+                    const newTask = await prisma.task.create({
+                        data: {
+                            title: title || 'New Task',
+                            description: body || 'Created via AI Bot',
+                            deadline: scheduledAt ? new Date(scheduledAt) : null,
+                            status: 'PENDING',
+                            priority: 'MEDIUM',
+                            createdById: user.id,
+                            assignedToId: user.id, // Self-assigned
+                        }
+                    });
+
+                    return res.status(200).json({
+                        success: true,
+                        data: {
+                            type: 'TASK',
+                            title: newTask.title,
+                            id: newTask.id,
+                            deadline: newTask.deadline,
+                            status: newTask.status
+                        }
+                    });
+                } catch (err) {
+                    console.error('[universalChat] TASK creation error:', err);
+                    return res.status(500).json({ success: false, message: 'Failed to create task.' });
+                }
             }
 
             // ── EMAIL ──────────────────────────────────────────────────────────

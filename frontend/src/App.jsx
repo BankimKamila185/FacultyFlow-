@@ -80,11 +80,10 @@ const icons = {
       <path d="M9 4v16" />
     </svg>
   ),
-  'AI Mail': (
+  'AI Chat Bot': (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 4h16v16H4z" />
-      <polyline points="4 6 12 13 20 6" />
-      <path d="M9 18h6" />
+      <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/>
+      <path d="M12 7a1 1 0 0 1 1 1v4a1 1 0 0 1-2 0V8a1 1 0 0 1 1-1zm0 8a1.5 1.5 0 1 1-1.5 1.5A1.5 1.5 0 0 1 12 15z"/>
     </svg>
   ),
   'Admin Panel': (
@@ -342,7 +341,7 @@ export default function App() {
     'My Task',
     'Inbox',
     ...(isAdmin ? ['Admin Panel'] : []),
-    'AI Mail',
+    'AI Chat Bot',
     'Workspace',
     'Calendar',
     'Settings'
@@ -574,7 +573,7 @@ export default function App() {
           {isAdmin && activeTab === 'Admin Panel' && <AdminDashboard setActiveTab={setActiveTab} />}
           {activeTab === 'Projects' && <Workflow />}
           {activeTab === 'Inbox' && <Inbox setActiveTab={setActiveTab} />}
-          {activeTab === 'AI Mail' && <AIAssistant />}
+          {activeTab === 'AI Chat Bot' && <AIAssistant />}
           {activeTab === 'Workspace' && <GoogleTools setActiveTab={setActiveTab} />}
           {activeTab === 'Calendar' && <GoogleCalendar />}
           {activeTab === 'Notifications' && <Notifications />}
