@@ -1,7 +1,5 @@
 import * as xlsx from 'xlsx';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../models/prisma';
 
 export class ExcelGenerator {
     static async generateTasksReport(): Promise<Buffer> {

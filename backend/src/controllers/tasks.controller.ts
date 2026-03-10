@@ -69,7 +69,8 @@ export const getMyTasks = async (req: Request, res: Response): Promise<void> => 
 export const getAllTasks = async (req: Request, res: Response): Promise<void> => {
     try {
         const user = (req as any).user;
-        const whereClause = user?.role === 'FACULTY' ? {
+        const isFaculty = user?.role?.toUpperCase() === 'FACULTY';
+        const whereClause = isFaculty ? {
             OR: [
                 { assignedToId: user.id },
                 { responsibles: { some: { email: user.email?.toLowerCase() } } }

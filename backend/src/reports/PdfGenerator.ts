@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { prisma } from '../models/prisma';
 import fs from 'fs';
 import path from 'path';
 
@@ -6,8 +7,7 @@ export class PdfGenerator {
     static async generateTasksReport(): Promise<Buffer> {
         return new Promise(async (resolve, reject) => {
             try {
-                const { PrismaClient } = require('@prisma/client');
-                const prisma = new PrismaClient();
+            // Use singleton prisma
                 const tasks = await prisma.task.findMany({
                     include: { assignedTo: true, workflow: true },
                     orderBy: { deadline: 'asc' }

@@ -1,6 +1,7 @@
 import { Queue, Worker, Job } from 'bullmq';
 import { redis } from '../utils/redis';
 import winston from 'winston';
+import { prisma } from '../models/prisma';
 
 const logger = winston.createLogger({
     level: 'info',
@@ -17,8 +18,7 @@ const workflowWorker = new Worker(
         logger.info(`Processing workflow job ${job.id}`, job.data);
         
         if (job.data.action === 'CHECK_OVERDUE') {
-            const { PrismaClient } = require('@prisma/client');
-            const prisma = new PrismaClient();
+            // Use singleton prisma
             
             const overdueTasks = await prisma.task.updateMany({
                 where: {
