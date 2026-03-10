@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
-import { getAvatarUrl } from '../utils/api';
+import { fetchWithAuth, getAvatarUrl } from '../utils/api';
 import './UserProfile.css';
 
 export default function UserProfile({ theme, toggleTheme }) {
-    const { currentUser, devUser, logout } = useAuth();
+    const { currentUser, devUser, backendUser, logout } = useAuth();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
@@ -26,7 +26,7 @@ export default function UserProfile({ theme, toggleTheme }) {
 
     const fetchProfile = async () => {
         try {
-            const email = currentUser?.email || devUser?.email;
+            const email = (devUser?.email || currentUser?.email || backendUser?.email || '').toLowerCase();
             if (!email) return;
             const res = await fetchWithAuth(`${API_URL}/users/profile/${email}`);
             const data = await res.json();
@@ -49,7 +49,7 @@ export default function UserProfile({ theme, toggleTheme }) {
 
     useEffect(() => {
         fetchProfile();
-    }, [currentUser]);
+    }, [currentUser, devUser, backendUser]);
 
     const handleSave = async (e) => {
         e.preventDefault();
@@ -127,11 +127,12 @@ export default function UserProfile({ theme, toggleTheme }) {
         return (
             <div className="user-profile-container">
                 <div className="profile-glass-card">
-                    {renderHeader({
-                        email: currentUser?.email,
-                        name: currentUser?.displayName || currentUser?.email?.split('@')[0],
-                        photoUrl: currentUser?.photoURL
-                    })}
+                {renderHeader({
+                    email: devUser?.email || currentUser?.email || backendUser?.email,
+                    name: devUser?.name || currentUser?.displayName || backendUser?.name || (devUser?.email || currentUser?.email || backendUser?.email || '').split('@')[0],
+                    photoUrl: devUser?.photoUrl || currentUser?.photoURL || backendUser?.photoUrl,
+                    role: devUser?.role || backendUser?.role || 'Guest'
+                })}
                     <div className="profile-error-state" style={{ 
                         padding: '4rem 2rem', 
                         textAlign: 'center',
