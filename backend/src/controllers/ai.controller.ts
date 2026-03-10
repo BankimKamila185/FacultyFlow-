@@ -125,6 +125,20 @@ export class AIController {
                     .filter(email => email && email !== userEmail);
             }
 
+            let recipients = targetEmails;
+
+            // Performance: If prompt is just for lookup, skip Gemini
+            if (prompt === 'Lookup only' && audienceRole) {
+                const users = await prisma.user.findMany({
+                    where: { role: audienceRole.toUpperCase() }
+                });
+                recipients = users.map(u => u.email).filter(email => email && email !== userEmail);
+                return res.status(200).json({
+                    success: true,
+                    data: { subject: '', body: '', recipients, detectedAudience: audienceRole }
+                });
+            }
+
             const now = new Date().toISOString();
             const aiPrompt = `You are an elite faculty email assistant. 
 
@@ -134,10 +148,10 @@ Current time context: ${now}
 Task:
 1. Write a professional, concise academic email. DO NOT just repeat the instruction. Use a formal tone.
 2. Detect the intended Audience:
-   - If the user mentions "students", output "STUDENT".
-   - If "heads" or "HOD", output "HOD".
-   - If "faculty", output "FACULTY".
-   - Else null.
+   - If the user mentions students/class/learners, output "STUDENT".
+   - If heads/HOD/chairs, output "HOD".
+   - If faculty/teachers/colleagues, output "FACULTY".
+   - Else if unclear, output null.
 3. Extract any specific send time/date mentioned. Convert to ISO string.
 
 Output ONLY a JSON object:
@@ -150,7 +164,7 @@ Output ONLY a JSON object:
 
 Rules:
 - Subject: Compelling and clear.
-- Body: Professional, well-formatted, under 150 words.
+- Body: Professional, well-formatted, under 150 words. No intro like "Sure, here is your email".
 - NO markdown code fences. NO extra text.`;
 
             const raw = await callGemini(aiPrompt);
@@ -175,12 +189,15 @@ Rules:
             // Fallback body if parsing fails or AI is empty
             if (!bodyText) bodyText = `Regarding: ${prompt}`;
 
-            // Smarter recipient lookup if audience was detected and no recipients provided
-            if (targetEmails.length === 0 && detectedAudience) {
+            // Smarter recipient lookup
+            // 1. If audienceRole was passed (override), use it.
+            // 2. Else if AI detected an audience, use it.
+            const roleToLookup = audienceRole || detectedAudience;
+            if (recipients.length === 0 && roleToLookup) {
                 const users = await prisma.user.findMany({
-                    where: { role: detectedAudience.toUpperCase() }
+                    where: { role: roleToLookup.toUpperCase() }
                 });
-                targetEmails = users
+                recipients = users
                     .map(u => u.email)
                     .filter(email => email && email !== userEmail);
             }
@@ -190,9 +207,9 @@ Rules:
                 data: {
                     subject,
                     body: bodyText,
-                    recipients: targetEmails,
+                    recipients,
                     scheduledAt,
-                    detectedAudience
+                    detectedAudience: detectedAudience || audienceRole
                 }
             });
         } catch (error) {
