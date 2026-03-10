@@ -165,9 +165,7 @@ export class AIController {
                 else if (detectedAudience === 'FACULTY') greeting = 'Dear Faculty,';
 
                 const bodyText =
-`Subject: ${subject}
-
-${greeting}
+`${greeting}
 
 ${normalized.charAt(0).toUpperCase() + normalized.slice(1)}
 
@@ -279,9 +277,44 @@ The JSON shape MUST be exactly:
                 }
             }
 
-            // Final ultra-safe fallback body if everything else fails
+            // Final ultra-safe fallback if everything else fails
             if (!bodyText) {
-                bodyText = `Regarding your request: ${prompt}`;
+                const normalized = String(prompt).trim();
+                const lower = normalized.toLowerCase();
+
+                if (!detectedAudience) {
+                    if (lower.match(/\bstudent|class|exam|lecture|semester\b/)) {
+                        detectedAudience = 'STUDENT';
+                    } else if (lower.match(/\bhod\b|head of department|chair\b/)) {
+                        detectedAudience = 'HOD';
+                    } else if (lower.match(/\bfaculty|colleague|professor|staff\b/)) {
+                        detectedAudience = 'FACULTY';
+                    }
+                }
+
+                const firstSentence = normalized.split(/[.?!]/)[0].trim();
+                if (firstSentence) {
+                    let safeSubject = firstSentence.charAt(0).toUpperCase() + firstSentence.slice(1);
+                    if (safeSubject.length > 90) {
+                        safeSubject = safeSubject.slice(0, 87).trimEnd() + '...';
+                    }
+                    subject = safeSubject;
+                }
+
+                let greeting = 'Dear All,';
+                if (detectedAudience === 'STUDENT') greeting = 'Dear Students,';
+                else if (detectedAudience === 'HOD') greeting = 'Dear Head of Department,';
+                else if (detectedAudience === 'FACULTY') greeting = 'Dear Faculty,';
+
+                bodyText =
+`${greeting}
+
+${normalized.charAt(0).toUpperCase() + normalized.slice(1)}
+
+Thank you.
+
+Best regards,
+${userName}`;
             }
 
             // Smarter recipient lookup

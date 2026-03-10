@@ -58,6 +58,19 @@ export default function PromptEmail() {
 
     const handleConfirmSend = async (msgId, draftData) => {
         setError('');
+
+        if (!draftData.subject || !draftData.body) {
+            setError('Draft is missing a subject or body. Please edit the text and try again.');
+            return;
+        }
+
+        if (!draftData.recipients || draftData.recipients.length === 0) {
+            const audienceLabel = (draftData.detectedAudience || '').toLowerCase();
+            const audienceText = audienceLabel ? `${audienceLabel} users` : 'matching users';
+            setError(`No recipients found for this email. Make sure there are ${audienceText} in the system.`);
+            return;
+        }
+
         setIsProcessing(true);
         
         try {
@@ -85,6 +98,15 @@ export default function PromptEmail() {
     const copyToClipboard = (text) => {
         navigator.clipboard.writeText(text);
         // Simple visual feedback could be added here
+    };
+
+    const getDisplayBody = (body) => {
+        if (!body) return '';
+        const lines = String(body).split('\n');
+        if (lines[0].trim().toLowerCase().startsWith('subject:')) {
+            return lines.slice(1).join('\n').replace(/^\s+/, '');
+        }
+        return body;
     };
 
     return (
@@ -272,7 +294,7 @@ export default function PromptEmail() {
                                         <button className="icon-btn" title="Copy Content" onClick={() => copyToClipboard(msg.data.body)}>
                                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                                         </button>
-                                        {!msg.sent && (
+                                        {!msg.sent && (msg.data.recipients?.length || 0) > 0 && (
                                             <button className="icon-btn" title="Send Now" onClick={() => handleConfirmSend(msg.id, msg.data)}>
                                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                                             </button>
@@ -281,7 +303,7 @@ export default function PromptEmail() {
                                 </div>
                                 <div className="ai-card-content">
                                     <div className="email-subject">Subject: {msg.data.subject}</div>
-                                    <div className="email-body">{msg.data.body}</div>
+                                    <div className="email-body">{getDisplayBody(msg.data.body)}</div>
                                 </div>
                                 <div className="ai-card-footer">
                                     <div className="meta-item">
