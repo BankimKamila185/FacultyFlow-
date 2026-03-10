@@ -5,6 +5,9 @@ export class AnalyticsController {
     static async getDashboardMetrics(req: Request, res: Response, next: NextFunction) {
         try {
             const user = (req as any).user;
+            if (!user) {
+                return res.status(401).json({ success: false, message: 'Identity required for analytics' });
+            }
             
             // ALWAYS filter for personalized metrics based on current user
             // "Project Total" (globalTotal) is handled inside the service separately
