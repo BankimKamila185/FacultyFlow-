@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { API_URL } from '../config';
+import { fetchWithAuth } from '../utils/api';
 
 const CATEGORIES = [
     { key: 'all', label: 'All', icon: '📬', color: '#818cf8' },
@@ -35,10 +36,6 @@ export default function Inbox() {
     const [syncMsg, setSyncMsg] = useState('');
     const [draftModal, setDraftModal] = useState({ open: false, emailId: null, draft: '', loading: false });
 
-    const getHeaders = () => ({ 
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json'
-    });
 
     const fetchEmails = useCallback(async (category = 'all') => {
         setLoading(true);
@@ -46,7 +43,7 @@ export default function Inbox() {
             const url = category === 'all'
                 ? `${API_URL}/inbox`
                 : `${API_URL}/inbox?category=${category}`;
-            const res = await fetch(url, { headers: getHeaders() });
+            const res = await fetchWithAuth(url);
             const data = await res.json();
             if (data.success) {
                 setEmails(data.data);
@@ -65,7 +62,7 @@ export default function Inbox() {
         setSyncing(true);
         setSyncMsg('');
         try {
-            const res = await fetch(`${API_URL}/inbox/sync`, { method: 'POST', headers: getHeaders() });
+            const res = await fetchWithAuth(`${API_URL}/inbox/sync`, { method: 'POST' });
             const data = await res.json();
             setSyncMsg(data.message || 'Sync complete');
             fetchEmails(activeCategory);
@@ -79,7 +76,7 @@ export default function Inbox() {
     const openEmail = async (email) => {
         setSelectedEmail(email);
         if (!email.isRead) {
-            await fetch(`${API_URL}/inbox/${email.id}/read`, { method: 'PATCH', headers: getHeaders() });
+            await fetchWithAuth(`${API_URL}/inbox/${email.id}/read`, { method: 'PATCH' });
             setEmails(prev => prev.map(e => e.id === email.id ? { ...e, isRead: true } : e));
         }
     };
@@ -87,7 +84,7 @@ export default function Inbox() {
     const getAutoReply = async (emailId) => {
         setDraftModal({ open: true, emailId, draft: '', loading: true });
         try {
-            const res = await fetch(`${API_URL}/inbox/${emailId}/auto-reply`, { method: 'POST', headers: getHeaders() });
+            const res = await fetchWithAuth(`${API_URL}/inbox/${emailId}/auto-reply`, { method: 'POST' });
             const data = await res.json();
             setDraftModal(d => ({ ...d, draft: data.draft || '', loading: false }));
         } catch {
@@ -365,11 +362,8 @@ export default function Inbox() {
                             <button
                                 onClick={async () => {
                                     try {
-                                        const res = await fetch(`${API_URL}/inbox/${draftModal.emailId}/send-reply`, {
+                                        const res = await fetchWithAuth(`${API_URL}/inbox/${draftModal.emailId}/send-reply`, {
                                             method: 'POST',
-                                            headers: {
-                                                ...getHeaders()
-                                            },
                                             body: JSON.stringify({ draft: draftModal.draft })
                                         });
                                         const data = await res.json();

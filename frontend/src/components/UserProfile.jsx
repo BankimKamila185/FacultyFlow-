@@ -5,7 +5,7 @@ import { getAvatarUrl } from '../utils/api';
 import './UserProfile.css';
 
 export default function UserProfile({ theme, toggleTheme }) {
-    const { currentUser, backendToken, logout } = useAuth();
+    const { currentUser, devUser, logout } = useAuth();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
@@ -26,16 +26,9 @@ export default function UserProfile({ theme, toggleTheme }) {
 
     const fetchProfile = async () => {
         try {
-            let email = currentUser?.email;
-            if (!email) {
-                const devUserStr = localStorage.getItem('devUser');
-                if (devUserStr) {
-                    const devUser = JSON.parse(devUserStr);
-                    email = devUser.email;
-                }
-            }
+            const email = currentUser?.email || devUser?.email;
             if (!email) return;
-            const res = await fetch(`${API_URL}/users/profile/${email}`);
+            const res = await fetchWithAuth(`${API_URL}/users/profile/${email}`);
             const data = await res.json();
             if (data.success) {
                 setProfile(data.profile);
@@ -63,12 +56,8 @@ export default function UserProfile({ theme, toggleTheme }) {
         setSaving(true);
         setMessage('');
         try {
-            const res = await fetch(`${API_URL}/users/profile`, {
+            const res = await fetchWithAuth(`${API_URL}/users/profile`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${backendToken}`
-                },
                 body: JSON.stringify(editData)
             });
             const data = await res.json();

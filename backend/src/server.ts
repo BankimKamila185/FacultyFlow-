@@ -8,6 +8,7 @@ import { typeDefs } from './graphql/typeDefs';
 import { resolvers } from './graphql/resolvers';
 import { prisma } from './models/prisma';
 import winston from 'winston';
+import cookieParser from 'cookie-parser';
 import { errorHandler } from './middleware/errorHandler';
 import apiRoutes from './routes';
 import { verifyToken } from './utils/jwt';
@@ -34,10 +35,8 @@ export async function createApp() {
                 ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) 
                 : [];
             
-            // In development, allow all origins if not specified
             if (process.env.NODE_ENV !== 'production' && !origin) return callback(null, true);
             
-            // Check if origin is allowed
             if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
                 callback(null, true);
             } else {
@@ -46,6 +45,7 @@ export async function createApp() {
         },
         credentials: true
     }));
+    app.use(cookieParser());
     app.use(express.json());
     app.use(morgan('dev'));
 

@@ -86,7 +86,8 @@ const icons = {
   ),
 };
 
-function LoginPage({ onLogin, onDevLogin }) {
+function LoginPage({ onLogin }) {
+  const { devLogin } = useAuth();
   const [devEmail, setDevEmail] = React.useState('meetd@itm.edu');
   const [devLoading, setDevLoading] = React.useState(false);
   const [devError, setDevError] = React.useState('');
@@ -95,21 +96,9 @@ function LoginPage({ onLogin, onDevLogin }) {
     setDevLoading(true);
     setDevError('');
     try {
-      const res = await fetch(`${API_URL}/auth/dev-login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: devEmail })
-      });
-      const data = await res.json();
-      if (data.success) {
-        localStorage.setItem('token', data.data.token);
-        localStorage.setItem('devUser', JSON.stringify(data.data.user));
-        if (onDevLogin) onDevLogin(data.data.user, data.data.token);
-      } else {
-        setDevError(data.error || 'Dev login failed');
-      }
+      await devLogin(devEmail);
     } catch (e) {
-      setDevError('Cannot connect to backend. Is it running?');
+      setDevError(e.message || 'Dev login failed');
     } finally {
       setDevLoading(false);
     }
@@ -260,11 +249,7 @@ export default function App() {
     const delayDebounceFn = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const token = localStorage.getItem('token');
-        if (!token || token === 'undefined') return;
-        const res = await fetch(`${API_URL}/search?q=${encodeURIComponent(searchQuery)}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const res = await fetchWithAuth(`${API_URL}/search?q=${encodeURIComponent(searchQuery)}`);
         const data = await res.json();
         if (data.success) {
           setSearchResults(data.data);
@@ -327,14 +312,7 @@ export default function App() {
     setTheme(t => t === 'light' ? 'dark' : 'light');
   };
 
-  const handleDevLoginSuccess = (user, token) => {
-    setDevUser(user);
-    setBackendToken(token); // Ensure backend token is updated in context too
-  };
-
-  // handleLogout logic is now fully encapsulated in useAuth().logout()
-
-  if (!effectiveUser || (!backendToken && !devUser)) return <LoginPage onLogin={loginWithGoogle} onDevLogin={handleDevLoginSuccess} />;
+  if (!effectiveUser || (!backendToken && !devUser)) return <LoginPage onLogin={loginWithGoogle} />;
 
   const navItems = [
     'Dashboard',

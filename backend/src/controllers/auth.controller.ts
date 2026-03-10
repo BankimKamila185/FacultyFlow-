@@ -3,6 +3,15 @@ import { AuthService } from '../services/AuthService';
 import { prisma } from '../models/prisma';
 import { generateToken } from '../utils/jwt';
 
+const setAuthCookie = (res: Response, token: string) => {
+    res.cookie('auth_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+};
+
 export class AuthController {
     static async login(req: Request, res: Response, next: NextFunction) {
         try {
@@ -13,9 +22,20 @@ export class AuthController {
 
             const { user, token } = await AuthService.loginWithGoogle(idToken, googleAccessToken, googleRefreshToken);
 
+            setAuthCookie(res, token);
+
             res.status(200).json({
                 success: true,
-                data: { user, token }
+                data: { 
+                    user: {
+                        id: user.id,
+                        email: user.email,
+                        name: user.name,
+                        role: user.role,
+                        devUser: user.devModeContext ? JSON.parse(user.devModeContext) : null
+                    }, 
+                    token 
+                }
             });
         } catch (error) {
             next(error);
@@ -51,10 +71,18 @@ export class AuthController {
             // Generate real JWT token
             const token = generateToken({ id: user.id, email: user.email, role: user.role });
 
+            setAuthCookie(res, token);
+
             res.status(200).json({
                 success: true,
                 data: {
-                    user: { id: user.id, email: user.email, name: user.name, role: user.role },
+                    user: { 
+                        id: user.id, 
+                        email: user.email, 
+                        name: user.name, 
+                        role: user.role,
+                        devUser: user.devModeContext ? JSON.parse(user.devModeContext) : null
+                    },
                     token
                 }
             });
@@ -65,7 +93,49 @@ export class AuthController {
 
     static async logout(req: Request, res: Response, next: NextFunction) {
         try {
+            res.clearCookie('auth_token');
             res.status(200).json({ success: true, message: 'Logged out successfully' });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async getMe(req: Request, res: Response, next: NextFunction) {
+        try {
+            const userId = (req as any).user?.id;
+            if (!userId) return res.status(401).json({ success: false, error: 'Not authenticated' });
+
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+
+            res.status(200).json({
+                success: true,
+                data: {
+                    user: {
+                        id: user.id,
+                        email: user.email,
+                        name: user.name,
+                        role: user.role,
+                        devUser: user.devModeContext ? JSON.parse(user.devModeContext) : null
+                    }
+                }
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async updateDevContext(req: Request, res: Response, next: NextFunction) {
+        try {
+            const userId = (req as any).user?.id;
+            const { devUser } = req.body;
+
+            await prisma.user.update({
+                where: { id: userId },
+                data: { devModeContext: devUser ? JSON.stringify(devUser) : null }
+            });
+
+            res.status(200).json({ success: true, message: 'Dev context updated' });
         } catch (error) {
             next(error);
         }

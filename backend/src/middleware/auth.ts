@@ -7,11 +7,18 @@ export interface AuthenticatedRequest extends Request {
 
 export function authenticate(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    let token = null;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
+    } else if (req.cookies && req.cookies.auth_token) {
+        token = req.cookies.auth_token;
+    }
+
+    if (!token) {
         return res.status(401).json({ success: false, error: 'Unauthorized' });
     }
 
-    const token = authHeader.split(' ')[1];
     try {
         const decoded = verifyToken(token);
         req.user = decoded;

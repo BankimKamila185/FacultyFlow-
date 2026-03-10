@@ -13,23 +13,33 @@ export function useAuth() {
 export function AuthProvider({ children }) {
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [backendToken, setBackendToken] = useState(() => {
-        const token = localStorage.getItem('token');
-        return (token === 'undefined' || token === 'null') ? null : token;
-    });
-    const [devUser, setDevUser] = useState(() => {
-        try {
-            const user = localStorage.getItem('devUser');
-            if (user === 'undefined' || user === 'null') return null;
-            return user ? JSON.parse(user) : null;
-        } catch {
-            return null;
-        }
-    });
+    const [backendToken, setBackendToken] = useState(null);
+    const [devUser, setDevUser] = useState(null);
 
     const isLoggingIn = React.useRef(false);
 
+    const fetchSession = async () => {
+        try {
+            const res = await fetch(`${API_URL}/auth/me`, { 
+                credentials: 'include' 
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.success) {
+                    setBackendToken(true); // Indication that we have a cookie session
+                    setDevUser(data.data.user.devModeContext ? JSON.parse(data.data.user.devModeContext) : null);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to fetch session", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
+        fetchSession();
+
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
             if (user && !backendToken && !isLoggingIn.current) {
@@ -39,12 +49,13 @@ export function AuthProvider({ children }) {
                     const res = await fetch(`${API_URL}/auth/login`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ idToken })
+                        body: JSON.stringify({ idToken }),
+                        credentials: 'include'
                     });
                     const data = await res.json();
                     if (data.success) {
-                        setBackendToken(data.data.token);
-                        localStorage.setItem('token', data.data.token);
+                        setBackendToken(true);
+                        setDevUser(data.data.user.devModeContext ? JSON.parse(data.data.user.devModeContext) : null);
                     }
                 } catch (err) {
                     console.error("Silent backend login failed", err);
@@ -52,7 +63,6 @@ export function AuthProvider({ children }) {
                     isLoggingIn.current = false;
                 }
             }
-            setLoading(false);
         });
 
         return unsubscribe;
@@ -65,24 +75,21 @@ export function AuthProvider({ children }) {
             const result = await signInWithPopup(auth, googleProvider);
             const idToken = await result.user.getIdToken();
 
-            // Extract the Google Access Token
             const credential = GoogleAuthProvider.credentialFromResult(result);
             const googleAccessToken = credential?.accessToken;
             const googleRefreshToken = result._tokenResponse?.refreshToken;
 
-            // Send the tokens to the backend
             const res = await fetch(`${API_URL}/auth/login`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ idToken, googleAccessToken, googleRefreshToken }),
+                credentials: 'include'
             });
 
             const data = await res.json();
             if (data.success) {
-                setBackendToken(data.data.token);
-                localStorage.setItem('token', data.data.token);
+                setBackendToken(true);
+                setDevUser(data.data.user.devModeContext ? JSON.parse(data.data.user.devModeContext) : null);
             } else {
                 throw new Error(data.error);
             }
@@ -94,26 +101,61 @@ export function AuthProvider({ children }) {
         }
     };
 
+    const devLogin = async (email) => {
+        try {
+            const res = await fetch(`${API_URL}/auth/dev-login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+                credentials: 'include'
+            });
+            const data = await res.json();
+            if (data.success) {
+                setBackendToken(true);
+                setDevUser(data.data.user.devModeContext ? JSON.parse(data.data.user.devModeContext) : null);
+                return data.data.user;
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (err) {
+            console.error("Dev login failed", err);
+            throw err;
+        }
+    };
+
+    const updateDevUser = async (selectedUser) => {
+        setDevUser(selectedUser);
+        try {
+            await fetch(`${API_URL}/auth/dev-context`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ devUser: selectedUser }),
+                credentials: 'include'
+            });
+        } catch (err) {
+            console.error("Failed to sync dev context to DB", err);
+        }
+    };
+
     const logout = async () => {
         try {
             await firebaseSignOut(auth);
+            await fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
         } catch (err) {
-            console.error("Firebase signOut error", err);
+            console.error("Logout error", err);
         }
         setBackendToken(null);
         setDevUser(null);
-        localStorage.removeItem('token');
-        localStorage.removeItem('devUser');
     };
 
     const value = {
         currentUser,
         devUser,
         backendToken,
-        setDevUser,
-        setBackendToken,
+        setDevUser: updateDevUser,
         loginWithGoogle,
         logout,
+        devLogin,
     };
 
     return (

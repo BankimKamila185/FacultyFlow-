@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
+import { fetchWithAuth } from '../utils/api';
 
 export default function Settings() {
     const { currentUser } = useAuth();
@@ -19,13 +20,8 @@ export default function Settings() {
         setSaving(true);
         setMessage('Saving URL...');
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/sync/sheet-url`, {
+            const res = await fetchWithAuth(`${API_URL}/sync/sheet-url`, {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': token ? `Bearer ${token}` : ''
-                },
                 body: JSON.stringify({ sheetUrl })
             });
             const data = await res.json();
@@ -45,12 +41,8 @@ export default function Settings() {
         setSyncing(true);
         setMessage('Syncing...');
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/sync`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': token ? `Bearer ${token}` : ''
-                }
+            const res = await fetchWithAuth(`${API_URL}/sync`, {
+                method: 'POST'
             });
             const data = await res.json();
             if (data.success) {

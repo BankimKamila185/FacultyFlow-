@@ -41,19 +41,10 @@ router.post('/login', AuthController.login);
 // DEV ONLY: login as any faculty by email without Google OAuth
 router.post('/dev-login', AuthController.devLogin);
 
-/**
- * @swagger
- * /auth/logout:
- *   post:
- *     summary: Log out the current user
- *     tags: [Auth]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Logged out successfully
- */
 router.post('/logout', AuthController.logout);
+
+router.get('/me', authenticate, AuthController.getMe);
+router.post('/dev-context', authenticate, AuthController.updateDevContext);
 
 /**
  * @swagger

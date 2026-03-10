@@ -10,19 +10,19 @@ export const getAvatarUrl = (seed, type = 'avataaars') => {
 };
 
 export const fetchWithAuth = async (url, options = {}) => {
-  const token = localStorage.getItem('token');
   const headers = {
-    'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
     ...options.headers,
   };
 
-  const response = await fetch(url, { ...options, headers });
+  const response = await fetch(url, { 
+    ...options, 
+    headers, 
+    credentials: 'include' // This ensures cookies are sent for all platforms
+  });
   
   if (response.status === 401) {
-    console.warn('Unauthorized request. Clearing local storage.');
-    // Optional: localStorage.removeItem('token');
-    // Optional: window.location.reload();
+    console.warn('Unauthorized request.');
   }
   
   return response;

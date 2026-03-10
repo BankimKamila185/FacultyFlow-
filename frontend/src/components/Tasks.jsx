@@ -1,24 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config';
-import { getAvatarUrl } from '../utils/api';
+import { fetchWithAuth, getAvatarUrl } from '../utils/api';
 
 export default function Tasks() {
-    const { currentUser } = useAuth();
+    const { currentUser, devUser } = useAuth();
     const [filter, setFilter] = useState('All');
     const [allTasks, setAllTasks] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const devUser = JSON.parse(localStorage.getItem('devUser') || 'null');
     const userEmail = (currentUser?.email || devUser?.email || '').toLowerCase();
 
     useEffect(() => {
         const fetchTasks = async () => {
             try {
-                const token = localStorage.getItem('token');
-                const res = await fetch(`${API_URL}/tasks`, {
-                    headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-                });
+                const res = await fetchWithAuth(`${API_URL}/tasks`);
                 const data = await res.json();
                 if (data.success) {
                     const mappedTasks = data.data.map((task, idx) => {
@@ -60,13 +56,8 @@ export default function Tasks() {
 
     const updateTaskStatus = async (taskId, newStatus) => {
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/tasks/${taskId}/status`, {
+            const res = await fetchWithAuth(`${API_URL}/tasks/${taskId}/status`, {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify({ status: newStatus })
             });
             const data = await res.json();

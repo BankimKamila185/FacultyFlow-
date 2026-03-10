@@ -26,6 +26,7 @@ export class AnalyticsService {
                 inReview: inReviewTasks,
                 completed: completedTasks,
                 overdue: overdueTasks,
+                total: pendingTasks + inProgressTasks + inReviewTasks + completedTasks + overdueTasks,
             },
             workflows: {
                 active: activeWorkflows,

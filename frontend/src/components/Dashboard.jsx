@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
-import { getAvatarUrl } from '../utils/api';
+import { fetchWithAuth, getAvatarUrl } from '../utils/api';
 
 export default function Dashboard() {
     const [workflows, setWorkflows] = useState([]);
@@ -8,75 +8,103 @@ export default function Dashboard() {
     const [myTasks, setMyTasks] = useState([]);
     const [notifications, setNotifications] = useState([]);
     const [inbox, setInbox] = useState([]);
+    const [metrics, setMetrics] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [syncing, setSyncing] = useState(false);
+
+    const fetchData = async (showSyncing = false) => {
+        if (showSyncing) setSyncing(true);
+        try {
+            // Start Sync in background if requested
+            if (showSyncing) {
+                fetchWithAuth(`${API_URL}/sync`, { method: 'POST' }).catch(e => console.error("Sync error:", e));
+            }
+
+            const [wfRes, myTasksRes, allTasksRes, notifRes, inboxRes, metricsRes] = await Promise.all([
+                fetchWithAuth(`${API_URL}/workflows/progress`),
+                fetchWithAuth(`${API_URL}/tasks/my`),
+                fetchWithAuth(`${API_URL}/tasks`),
+                fetchWithAuth(`${API_URL}/notifications`),
+                fetchWithAuth(`${API_URL}/inbox`),
+                fetchWithAuth(`${API_URL}/analytics/dashboard`),
+            ]);
+            
+            const [wfData, myTasksData, allTasksData, notifData, inboxData, metricsData] = await Promise.all([
+                wfRes.json(),
+                myTasksRes.json(),
+                allTasksRes.json(),
+                notifRes.json(),
+                inboxRes.json(),
+                metricsRes.json()
+            ]);
+
+            if (wfData.success) setWorkflows(wfData.data.slice(0, 4));
+            if (myTasksData.success) setMyTasks(myTasksData.data.slice(0, 10));
+            if (allTasksData.success) setTasks(allTasksData.data);
+            if (notifData.success) setNotifications(notifData.data);
+            if (inboxData.success) setInbox(inboxData.data.slice(0, 5));
+            if (metricsData.success) setMetrics(metricsData.data);
+
+        } catch (error) {
+            console.error("Dashboard Fetch Error:", error);
+        } finally {
+            setLoading(false);
+            if (showSyncing) setTimeout(() => setSyncing(false), 2000); // Visual feedback lag
+        }
+    };
 
     useEffect(() => {
-        const fetchDashboardData = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                const headers = { 'Authorization': `Bearer ${token}` };
-
-                const [wfRes, myTasksRes, allTasksRes, notifRes, inboxRes] = await Promise.all([
-                    fetch(`${API_URL}/workflows/progress`, { headers }),
-                    fetch(`${API_URL}/tasks/my`, { headers }),
-                    fetch(`${API_URL}/tasks`, { headers }),
-                    fetch(`${API_URL}/notifications`, { headers }),
-                    fetch(`${API_URL}/inbox`, { headers }),
-                ]);
-                
-                const [wfData, myTasksData, allTasksData, notifData, inboxData] = await Promise.all([
-                    wfRes.json(),
-                    myTasksRes.json(),
-                    allTasksRes.json(),
-                    notifRes.json(),
-                    inboxRes.json()
-                ]);
-
-                if (wfData.success) setWorkflows(wfData.data.slice(0, 4));
-                if (myTasksData.success) setMyTasks(myTasksData.data.slice(0, 10)); // Personal
-                if (allTasksData.success) setTasks(allTasksData.data); // Global
-                if (notifData.success) setNotifications(notifData.data);
-                if (inboxData.success) setInbox(inboxData.data.slice(0, 5));
-
-            } catch (error) {
-                console.error("Dashboard Fetch Error:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchDashboardData();
-        const interval = setInterval(fetchDashboardData, 30000);
+        fetchData(true); // Initial sync + fetch
+        const interval = setInterval(() => fetchData(false), 30000);
         return () => clearInterval(interval);
     }, []);
 
-    const totalTasksCount = (workflows || []).reduce((acc, wf) => acc + (wf.totalTasks || 0), 0);
-    const completedTasksCount = (workflows || []).reduce((acc, wf) => acc + (wf.completedTasks || 0), 0);
-    const inProgressCount = tasks.filter(t => t.status === 'IN_PROGRESS').length;
+    // Accurate metrics from dedicated endpoint
+    const stats = {
+        total: metrics?.tasks?.total || 0,
+        active: (metrics?.tasks?.inProgress || 0) + (metrics?.tasks?.inReview || 0),
+        completed: metrics?.tasks?.completed || 0
+    };
 
     return (
         <div style={{ padding: '0 1rem' }}>
             {/* ─── Page Title ───────────────────────────────────────────── */}
-            <div style={{ marginBottom: '1.25rem' }}>
-                <h1 className="db-title" style={{ fontSize: '1.4rem' }}>Overview</h1>
-                <p className="db-subtitle" style={{ fontSize: '0.8rem', opacity: 0.8 }}>Monitor all of your projects and faculty tasks in high definition</p>
+            <div style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div>
+                    <h1 className="db-title" style={{ fontSize: '1.4rem' }}>Overview</h1>
+                    <p className="db-subtitle" style={{ fontSize: '0.8rem', opacity: 0.8 }}>Monitor all of your projects and faculty tasks with 100% live accuracy</p>
+                </div>
+                {syncing && (
+                    <div style={{ 
+                        display: 'flex', alignItems: 'center', gap: '8px', 
+                        color: 'var(--primary)', fontSize: '0.8rem', fontWeight: 700,
+                        background: 'var(--primary-glow)', padding: '6px 12px', borderRadius: '99px'
+                    }}>
+                        <div className="sync-spinner" style={{ 
+                            width: '12px', height: '12px', border: '2px solid currentColor', 
+                            borderTopColor: 'transparent', borderRadius: '50%',
+                            animation: 'spin 1s linear infinite'
+                        }} />
+                        Syncing Live Data...
+                    </div>
+                )}
             </div>
 
             {/* ─── Overview Stats Row ────────────────────────────────────────── */}
             <div className="over-stats" style={{ marginBottom: '1.5rem', gap: '1rem' }}>
                 <div className="over-card">
                     <div>
-                        <div className="over-label">Project Load</div>
-                        <div className="over-value">{totalTasksCount || 0}</div>
+                        <div className="over-label">Total Global Load</div>
+                        <div className="over-value">{stats.total}</div>
                     </div>
-                    <div className="over-icon" style={{ background: 'var(--bg-dark)', color: 'var(--success)', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>
+                    <div className="over-icon" style={{ background: 'var(--bg-dark)', color: 'var(--primary)', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     </div>
                 </div>
                 <div className="over-card">
                     <div>
                         <div className="over-label">Active / Progress</div>
-                        <div className="over-value">{inProgressCount || 0}</div>
+                        <div className="over-value">{stats.active}</div>
                     </div>
                     <div className="over-icon" style={{ background: 'var(--bg-dark)', color: '#D97706', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -85,9 +113,9 @@ export default function Dashboard() {
                 <div className="over-card">
                     <div>
                         <div className="over-label">Completed Achievements</div>
-                        <div className="over-value">{completedTasksCount || 0}</div>
+                        <div className="over-value">{stats.completed}</div>
                     </div>
-                    <div className="over-icon" style={{ background: 'var(--bg-dark)', color: '#DB2777', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>
+                    <div className="over-icon" style={{ background: 'var(--bg-dark)', color: '#10B981', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
                 </div>
@@ -114,7 +142,6 @@ export default function Dashboard() {
                                     .slice(0, 2);
 
                                 if (sortedTasks.length === 0 && myTasks.length > 0) {
-                                    // Fallback to most recently completed if everything is done
                                     return myTasks.slice(0, 2).map((task) => (
                                         <React.Fragment key={task.id}>
                                             {renderTaskCard(task, true)}
@@ -316,6 +343,12 @@ export default function Dashboard() {
                     </table>
                 </div>
             </div>
+
+            <style>{`
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 }

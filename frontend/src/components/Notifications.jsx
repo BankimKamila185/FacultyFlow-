@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
+import { fetchWithAuth } from '../utils/api';
 
 export default function Notifications() {
     const [notifications, setNotifications] = useState([]);
@@ -7,11 +8,7 @@ export default function Notifications() {
 
     const fetchNotifications = async () => {
         try {
-            const token = localStorage.getItem('token');
-            if (!token) return;
-            const res = await fetch(`${API_URL}/notifications`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const res = await fetchWithAuth(`${API_URL}/notifications`);
             const data = await res.json();
             if (data.success) {
                 setNotifications(data.data);
@@ -29,10 +26,8 @@ export default function Notifications() {
 
     const markAllAsRead = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${API_URL}/notifications/read-all`, {
-                method: 'PATCH',
-                headers: { 'Authorization': `Bearer ${token}` }
+            const res = await fetchWithAuth(`${API_URL}/notifications/read-all`, {
+                method: 'PATCH'
             });
             const data = await res.json();
             if (data.success) {

@@ -24,6 +24,7 @@ model User {
   photoUrl           String?
   theme              String         @default("light")
   department         String?
+  devModeContext     String?
   deviceTokens       DeviceToken[]
   inboxEmails        InboxEmail[]
   notifications      Notification[]

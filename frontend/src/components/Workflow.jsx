@@ -1,20 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
-import { getAvatarUrl } from '../utils/api';
+import { fetchWithAuth, getAvatarUrl } from '../utils/api';
 
 export default function Workflow() {
-  const { currentUser } = useAuth();
+  const { currentUser, devUser } = useAuth();
   const [rawTasks, setRawTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [suggestion, setSuggestion] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const handleAISuggest = async () => {
     try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${API_URL}/ai/suggest`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const res = await fetchWithAuth(`${API_URL}/ai/suggest`);
         const data = await res.json();
         if (data.success && data.bestSuggestion) {
             setSuggestion(data.bestSuggestion);
@@ -29,7 +26,6 @@ export default function Workflow() {
   const clearSuggestion = () => setSuggestion(null);
   const [showToast, setShowToast] = useState(false);
 
-  const devUser = JSON.parse(localStorage.getItem('devUser') || 'null');
   const userEmail = (currentUser?.email || devUser?.email || '').toLowerCase();
 
   // 4 Columns matching the provided image
@@ -45,10 +41,7 @@ export default function Workflow() {
   useEffect(() => {
     const fetchTasks = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${API_URL}/tasks`, {
-          headers: { 'Authorization': token ? `Bearer ${token}` : '' }
-        });
+        const res = await fetchWithAuth(`${API_URL}/tasks`);
         const data = await res.json();
         if (data.success) {
           const mappedTasks = data.data.map((task, idx) => {

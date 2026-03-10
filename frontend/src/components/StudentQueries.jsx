@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
+import { fetchWithAuth } from '../utils/api';
 
 export default function StudentQueries() {
     const [queries, setQueries] = useState([]);
@@ -8,11 +9,7 @@ export default function StudentQueries() {
     useEffect(() => {
         const fetchQueries = async () => {
             try {
-                const token = localStorage.getItem('token');
-                if (!token) return;
-                const res = await fetch(`${API_URL}/inbox?category=student_query`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const res = await fetchWithAuth(`${API_URL}/inbox?category=student_query`);
                 const data = await res.json();
                 if (data.success) {
                     setQueries(data.data);
