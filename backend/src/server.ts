@@ -6,7 +6,6 @@ import { expressMiddleware } from '@apollo/server/express4';
 import { config } from './config';
 import { typeDefs } from './graphql/typeDefs';
 import { resolvers } from './graphql/resolvers';
-import { prisma } from './models/prisma';
 import winston from 'winston';
 import cookieParser from 'cookie-parser';
 import { errorHandler } from './middleware/errorHandler';
@@ -15,7 +14,6 @@ import { verifyToken } from './utils/jwt';
 import './utils/redis';
 import { setupSwagger } from './docs/swagger';
 import { EmailScheduler } from './services/EmailScheduler';
-
 
 const logger = winston.createLogger({
     level: 'info',
@@ -73,14 +71,13 @@ export async function createApp() {
                     logger.warn('Token verification failed', err);
                 }
             }
-            return { req, prisma, user };
+            return { req, user };
         },
     }));
 
     app.get('/health', (req: Request, res: Response) => {
         res.status(200).json({ status: 'OK' });
     });
-
 
     app.use(errorHandler);
 
@@ -94,7 +91,6 @@ export async function startServer() {
         logger.info(`🚀 Server running on http://localhost:${config.PORT}`);
         logger.info(`🚀 GraphQL endpoint: http://localhost:${config.PORT}/graphql`);
         
-        // Start Advanced Email Scheduler
         EmailScheduler.start();
         
         if (config.REDIS_URL !== 'internal') {

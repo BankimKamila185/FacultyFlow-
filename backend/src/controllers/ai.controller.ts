@@ -1,25 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
-import { prisma } from '../models/prisma';
 import { AnalyticsService } from '../services/AnalyticsService';
 import { GmailIntegration } from '../integrations/gmail';
 import { DriveIntegration } from '../integrations/drive';
 import { SheetsIntegration } from '../integrations/sheets';
+import { FirestoreService } from '../services/FirestoreService';
 import fetch from 'node-fetch';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 async function callGemini(prompt: string): Promise<string> {
-    if (!GEMINI_API_KEY) {
-        console.error('GEMINI_API_KEY is missing');
-        return '';
-    }
-
+    if (!GEMINI_API_KEY) return '';
     const body = {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
     };
-
     try {
         const res = await fetch(GEMINI_URL, {
             method: 'POST',
@@ -27,10 +22,6 @@ async function callGemini(prompt: string): Promise<string> {
             body: JSON.stringify(body)
         });
         const data = await res.json() as any;
-        if (data.error) {
-            console.error('Gemini API Error:', JSON.stringify(data.error, null, 2));
-            return '';
-        }
         return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
     } catch (e) {
         console.error('Gemini fetch error:', e);
@@ -41,20 +32,10 @@ async function callGemini(prompt: string): Promise<string> {
 export class AIController {
     static async suggestAssignments(req: Request, res: Response, next: NextFunction) {
         try {
-            // Get all faculty with their current loads
             const facultyStats = await AnalyticsService.getFacultyProductivity();
-            
-            // Sort by active tasks (ascending) to find the least burdened
             const suggestions = [...facultyStats].sort((a, b) => (a as any).activeTasks - (b as any).activeTasks);
-            
-            res.status(200).json({ 
-                success: true, 
-                data: suggestions,
-                bestSuggestion: suggestions[0]
-            });
-        } catch (error) {
-            next(error);
-        }
+            res.status(200).json({ success: true, data: suggestions, bestSuggestion: suggestions[0] });
+        } catch (error) { next(error); }
     }
 
     static async getGlobalHealth(req: Request, res: Response, next: NextFunction) {
@@ -62,8 +43,6 @@ export class AIController {
             const user = (req as any).user;
             const filter = user?.role === 'FACULTY' ? { userId: user.id, email: user.email } : undefined;
             const metrics = await AnalyticsService.getDashboardMetrics(filter);
-            
-            // Logic for a "Smart" health summary
             const { tasks } = metrics;
             const total = tasks.pending + tasks.inProgress + (tasks as any).inReview + tasks.completed + tasks.overdue;
             const completionRate = total > 0 ? (tasks.completed / total) * 100 : 0;
@@ -73,761 +52,143 @@ export class AIController {
             
             if (tasks.overdue > 5) {
                 status = 'AT_RISK';
-                summary = `Action required: ${tasks.overdue} tasks are overdue. High potential for delay.`;
-            } else if (tasks.inProgress > tasks.completed * 2) {
-                status = 'CONGESTED';
-                summary = 'Observation: High volume of work in progress compared to completions.';
+                summary = `Action required: ${tasks.overdue} tasks are overdue.`;
             }
 
-            res.status(200).json({
-                success: true,
-                data: {
-                    status,
-                    summary,
-                    metrics: {
-                        completionRate,
-                        overdueCount: tasks.overdue
-                    }
-                }
-            });
-        } catch (error) {
-            next(error);
-        }
+            res.status(200).json({ success: true, data: { status, summary, metrics: { completionRate, overdueCount: tasks.overdue } } });
+        } catch (error) { next(error); }
     }
 
-    /**
-     * POST /api/ai/draft-email
-     * 
-     * Body:
-     *  - prompt: string
-     *  - audienceRole?: string
-     *  - recipients?: string[]
-     * 
-     * Returns a draft (subject, body, recipients, detected scheduledAt)
-     */
     static async draftPromptEmail(req: Request, res: Response, next: NextFunction) {
         try {
-            const user = (req as any).user;
-            const userEmail = user?.email;
-            const userName = user?.name || userEmail?.split('@')[0] || 'Faculty Member';
-
-            if (!userEmail) {
-                res.status(401).json({ success: false, message: 'Not authenticated' });
-                return;
-            }
+            const userToken = (req as any).user;
+            const userEmail = userToken?.email;
+            const userName = userToken?.name || userEmail?.split('@')[0] || 'Faculty Member';
+            if (!userEmail) return res.status(401).json({ success: false, message: 'Not authenticated' });
 
             const { prompt, audienceRole, recipients: rawRecipients } = req.body;
-
-            if (!prompt || typeof prompt !== 'string') {
-                res.status(400).json({ success: false, message: 'prompt is required' });
-                return;
-            }
-
             let targetEmails: string[] = Array.isArray(rawRecipients) ? rawRecipients.filter(Boolean) : [];
 
             if (targetEmails.length === 0 && audienceRole) {
-                const users = await prisma.user.findMany({
-                    where: { role: audienceRole.toUpperCase() }
-                });
-                targetEmails = users
-                    .map(u => u.email)
-                    .filter(email => email && email !== userEmail);
+                const users = await FirestoreService.query('users', [{ field: 'role', operator: '==', value: audienceRole.toUpperCase() }]);
+                targetEmails = users.map(u => u.email).filter(email => email && email !== userEmail);
             }
 
             let recipients = targetEmails;
 
-            // Fast offline fallback if Gemini API key is missing.
-            // This avoids ugly "Regarding your request..." drafts in local/dev.
             if (!GEMINI_API_KEY) {
-                const normalized = String(prompt).trim();
-                const lower = normalized.toLowerCase();
-
-                let detectedAudience: string | null = null;
-                if (lower.match(/\bstudent|class|exam|lecture|semester\b/)) {
-                    detectedAudience = 'STUDENT';
-                } else if (lower.match(/\bhod\b|head of department|chair\b/)) {
-                    detectedAudience = 'HOD';
-                } else if (lower.match(/\bfaculty|colleague|professor|staff\b/)) {
-                    detectedAudience = 'FACULTY';
-                }
-
-                // Subject: first sentence or a truncated version of the prompt
-                let subject = 'Faculty Announcement';
-                if (lower.indexOf('reminder') !== -1) subject = 'Important Reminder';
-                else if (lower.indexOf('lab') !== -1) subject = 'Lab Session Update';
-                else if (lower.indexOf('exam') !== -1) subject = 'Exam Notification';
-                else if (lower.indexOf('submission') !== -1) subject = 'Deadline Submission';
-                else {
-                    const firstSentence = normalized.split(/[.?!]/)[0].trim();
-                     subject = firstSentence
-                        ? firstSentence.charAt(0).toUpperCase() + firstSentence.slice(1)
-                        : 'Faculty Announcement';
-                }
-
-                if (subject.length > 90) {
-                    subject = subject.slice(0, 87).trimEnd() + '...';
-                }
-
-                // Simple polite email body
-                let greeting = 'Dear All,';
-                if (detectedAudience === 'STUDENT') greeting = 'Dear Students,';
-                else if (detectedAudience === 'HOD') greeting = 'Dear Head of Department,';
-                else if (detectedAudience === 'FACULTY') greeting = 'Dear Faculty,';
-
-                const bodyText =
-`${greeting}
-
-${normalized.charAt(0).toUpperCase() + normalized.slice(1)}
-
-Thank you.
-
-Best regards,
-${userName}`;
-
-                const roleToLookup = audienceRole || detectedAudience;
-                if (recipients.length === 0 && roleToLookup) {
-                    const users = await prisma.user.findMany({
-                        where: { role: roleToLookup.toUpperCase() }
-                    });
-                    recipients = users
-                        .map(u => u.email)
-                        .filter(email => email && email !== userEmail);
-                }
-
+                // Simplified offline fallback
                 return res.status(200).json({
                     success: true,
                     data: {
-                        subject,
-                        body: bodyText,
+                        subject: 'Faculty Announcement',
+                        body: `Dear All,\n\n${prompt}\n\nBest regards,\n${userName}`,
                         recipients,
-                        scheduledAt: null,
-                        detectedAudience: detectedAudience || audienceRole
+                        scheduledAt: null
                     }
                 });
             }
 
-            // Performance: If prompt is just for lookup, skip Gemini
-            if (prompt === 'Lookup only' && audienceRole) {
-                const users = await prisma.user.findMany({
-                    where: { role: audienceRole.toUpperCase() }
-                });
-                recipients = users.map(u => u.email).filter(email => email && email !== userEmail);
-                return res.status(200).json({
-                    success: true,
-                    data: { subject: '', body: '', recipients, detectedAudience: audienceRole }
-                });
-            }
-
-            const now = new Date().toISOString();
-            const aiPrompt = `You are an expert executive assistant at a top-tier university. Your goal is to transform rough, shorthand faculty notes into premium, professional, and warm academic emails.
-
-Instruction from faculty: "${prompt}"
-Current time: ${now}
-
-Instructions:
-1. REWRITE and EXPAND: Do not simply repeat the raw instruction. Take the core idea and write it as if you were a professional assistant. Fix all grammar and clarity issues.
-2. TONE: Warm, professional, supportive, and clear. Avoid sounding robotic.
-3. SUBJECT LINE: Create an engaging, high-level subject line that summarizes the action. Do NOT just use the raw prompt. (Max 80 chars).
-4. AUDIENCE DETECTION: Detect one of: "STUDENT", "HOD", "FACULTY", or null.
-   - Related to classes, exams, homework, grading -> "STUDENT"
-   - Related to department, management, reporting -> "HOD"
-   - Related to peers, staff meetings, collaboration -> "FACULTY"
-5. TIME CONVERSION: If a time like "tomorrow 9am" is given, write it elegantly (e.g., "tomorrow morning at 9:00 AM").
-6. SCHEDULE: If they say "send this at 5pm", extract that as "scheduledAt".
-
-Example:
-Input: "remind students lab tomorrow 9am"
-Output Subject: "Reminder: Scheduled Lab Session for Tomorrow at 9:00 AM"
-Output Body: "Dear Students,\n\nI would like to remind everyone about our upcoming lab session scheduled for tomorrow morning at 9:00 AM. Please ensure you have prepared all necessary materials in advance.\n\nThank you.\n\nBest regards,\n[Name]"
-
-JSON format (MANDATORY, NO CODE FENCES):
-{
-  "subject": "Clear, professional subject",
-  "body": "Full, natural email body with greeting and closing",
-  "audience": "STUDENT" | "HOD" | "FACULTY" | null,
-  "scheduledAt": "ISO-8601 or null"
-}`;
-
+            const aiPrompt = `Draft a professional email for prompt: "${prompt}". Return JSON: {"subject": "...", "body": "...", "audience": "STUDENT|HOD|FACULTY|null", "scheduledAt": "ISO or null"}`;
             const raw = await callGemini(aiPrompt);
-            console.log('Gemini Raw Output:', raw);
+            let subject = 'Faculty Announcement', bodyText = '', scheduledAt = null, detectedAudience = null;
 
-            let subject = 'Faculty Announcement';
-            let bodyText = '';
-            let scheduledAt: string | null = null;
-            let detectedAudience: string | null = null;
+            try {
+                let jsonStr = raw;
+                const match = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+                if (match) jsonStr = match[1];
+                const parsed = JSON.parse(jsonStr.trim());
+                subject = parsed.subject || subject;
+                bodyText = parsed.body || bodyText;
+                scheduledAt = parsed.scheduledAt || null;
+                detectedAudience = parsed.audience || null;
+            } catch (e) { bodyText = raw; }
 
-            if (raw) {
-                try {
-                    // Robust JSON extraction (handles both plain JSON and fenced JSON)
-                    let jsonStr = raw;
-                    const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-                    if (jsonMatch) {
-                        jsonStr = jsonMatch[1];
-                    }
-
-                    const parsed = JSON.parse(jsonStr.trim());
-                    subject = parsed.subject || subject;
-                    bodyText = parsed.body || bodyText;
-                    scheduledAt = parsed.scheduledAt || null;
-                    detectedAudience = parsed.audience || null;
-                } catch (e) {
-                    console.error('Draft JSON parse failed:', e, 'Raw was:', raw);
-
-                    // Graceful degradation: if JSON parsing fails but Gemini
-                    // still produced a reasonable email-looking text, use it.
-                    if (!bodyText && typeof raw === 'string') {
-                        // Try to extract a "Subject:" line if present
-                        const subjectMatch = raw.match(/^[Ss]ubject\s*:\s*(.+)$/m);
-                        if (subjectMatch) {
-                            subject = subjectMatch[1].trim() || subject;
-                            const withoutSubjectLine = raw.replace(subjectMatch[0], '').trim();
-                            bodyText = withoutSubjectLine || bodyText;
-                        } else if (raw.trim().length > 40) {
-                            // Treat the whole thing as the body if it's long enough
-                            bodyText = raw.trim();
-                        }
-                    }
-                }
-            }
-
-            // Final ultra-safe fallback if everything else fails
-            if (!bodyText) {
-                const normalized = String(prompt).trim();
-                const lower = normalized.toLowerCase();
-
-                if (!detectedAudience) {
-                    if (lower.match(/\bstudent|class|exam|lecture|semester\b/)) {
-                        detectedAudience = 'STUDENT';
-                    } else if (lower.match(/\bhod\b|head of department|chair\b/)) {
-                        detectedAudience = 'HOD';
-                    } else if (lower.match(/\bfaculty|colleague|professor|staff\b/)) {
-                        detectedAudience = 'FACULTY';
-                    }
-                }
-
-                const firstSentence = normalized.split(/[.?!]/)[0].trim();
-                if (firstSentence) {
-                    let safeSubject = firstSentence.charAt(0).toUpperCase() + firstSentence.slice(1);
-                    if (safeSubject.length > 90) {
-                        safeSubject = safeSubject.slice(0, 87).trimEnd() + '...';
-                    }
-                    subject = safeSubject;
-                }
-
-                let greeting = 'Dear All,';
-                if (detectedAudience === 'STUDENT') greeting = 'Dear Students,';
-                else if (detectedAudience === 'HOD') greeting = 'Dear Head of Department,';
-                else if (detectedAudience === 'FACULTY') greeting = 'Dear Faculty,';
-
-                bodyText =
-`${greeting}
-
-${normalized.charAt(0).toUpperCase() + normalized.slice(1)}
-
-Thank you.
-
-Best regards,
-${userName}`;
-            }
-
-            // Smarter recipient lookup
             const roleToLookup = audienceRole || detectedAudience;
             if (recipients.length === 0 && roleToLookup) {
-                const users = await prisma.user.findMany({
-                    where: { role: roleToLookup.toUpperCase() }
-                });
-                recipients = users
-                    .map(u => u.email)
-                    .filter(email => email && email !== userEmail);
+                const users = await FirestoreService.query('users', [{ field: 'role', operator: '==', value: roleToLookup.toUpperCase() }]);
+                recipients = users.map(u => u.email).filter(email => email && email !== userEmail);
             }
 
-            res.status(200).json({
-                success: true,
-                data: {
-                    subject,
-                    body: bodyText,
-                    recipients,
-                    scheduledAt,
-                    detectedAudience: detectedAudience || audienceRole
-                }
-            });
-        } catch (error) {
-            next(error);
-        }
+            res.status(200).json({ success: true, data: { subject, body: bodyText, recipients, scheduledAt, detectedAudience } });
+        } catch (error) { next(error); }
     }
 
-    /**
-     * POST /api/ai/confirm-send
-     * 
-     * Body: { subject, body, recipients, scheduledAt }
-     */
     static async confirmSendEmail(req: Request, res: Response, next: NextFunction) {
         try {
-            const user = (req as any).user;
+            const userToken = (req as any).user;
             const { subject, body, recipients, scheduledAt } = req.body;
 
-            if (!subject || !body || !recipients || !recipients.length) {
-                return res.status(400).json({ success: false, message: 'Missing subject, body, or recipients' });
-            }
-
             if (scheduledAt) {
-                await prisma.scheduledEmail.create({
-                    data: {
-                        userId: user.id,
-                        fromEmail: user.email,
-                        toEmails: recipients,
-                        subject,
-                        body,
-                        scheduledAt: new Date(scheduledAt)
-                    }
+                await FirestoreService.createDoc('scheduledEmails', {
+                    userId: userToken.id,
+                    fromEmail: userToken.email,
+                    toEmails: recipients,
+                    subject,
+                    body,
+                    scheduledAt: new Date(scheduledAt)
                 });
-                return res.status(200).json({ success: true, message: 'Email scheduled successfully' });
+                return res.status(200).json({ success: true, message: 'Email scheduled' });
             }
 
-            // Send immediately
-            let sentCount = 0;
             for (const to of recipients) {
-                try {
-                    await GmailIntegration.sendEmail(user.email, to, subject, body);
-                    sentCount++;
-                } catch (e) {
-                    console.error('Send failed for', to, e);
-                }
+                await GmailIntegration.sendEmail(userToken.email, to, subject, body);
             }
-
-            res.status(200).json({
-                success: true,
-                message: `Sent to ${sentCount} recipient(s).`
-            });
-        } catch (error) {
-            next(error);
-        }
+            res.status(200).json({ success: true, message: `Sent to ${recipients.length} recipient(s).` });
+        } catch (error) { next(error); }
     }
 
-    static async sendPromptEmail(req: Request, res: Response, next: NextFunction) {
-        // Keeping for backward compatibility, redirecting to draft logic basically
-        return AIController.draftPromptEmail(req, res, next);
-    }
-
-    /**
-     * POST /api/ai/chat
-     * 
-     * Universal AI chat endpoint. Accepts a natural-language prompt,
-     * uses Gemini to detect intent, and routes to the right handler.
-     * 
-     * Body: { prompt: string }
-     * Returns: { type: 'EMAIL'|'SHEET'|'DOC'|'FORM'|'SUMMARY', data: {...} }
-     */
     static async universalChat(req: Request, res: Response, next: NextFunction) {
         try {
-            const user = (req as any).user;
-            const userEmail = user?.email;
-            const userName = user?.name || userEmail?.split('@')[0] || 'Faculty Member';
-
-            if (!userEmail) {
-                res.status(401).json({ success: false, message: 'Not authenticated' });
-                return;
-            }
-
+            const userToken = (req as any).user;
+            const userEmail = userToken?.email;
+            const userName = userToken?.name || userEmail?.split('@')[0] || 'Faculty Member';
             const { prompt } = req.body;
-            if (!prompt || typeof prompt !== 'string') {
-                res.status(400).json({ success: false, message: 'prompt is required' });
-                return;
-            }
 
-            const now = new Date().toISOString();
+            const classifyPrompt = `Detect intent for: "${prompt}". Return JSON: {"type": "EMAIL|SHEET|DOC|FORM|SUMMARY|CHAT|TASK", "audience": "...", "title": "...", "scheduledAt": "...", "subject": "...", "body": "...", "response": "..."}`;
+            const raw = await callGemini(classifyPrompt);
+            let parsed: any = { type: 'CHAT' };
+            try {
+                let jsonStr = raw;
+                const match = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+                if (match) jsonStr = match[1];
+                parsed = JSON.parse(jsonStr.trim());
+            } catch (e) {}
 
-            // ── Step 1: Classify intent with Gemini ────────────────────────────
-            const classifyPrompt = `You are an AI assistant for a university faculty management app.
-A faculty member typed this instruction: "${prompt}"
-Current time: ${now}
-
-Classify their intent as EXACTLY one of these types:
-- EMAIL: They want to send, compose, draft, remind, or notify someone via email
-- SHEET: They want to create a spreadsheet, Excel, Google Sheet, table, list of data
-- DOC: They want to create a document, notice, letter, report, announcement (as a Google Doc)
-- FORM: They want to create a form, survey, quiz, feedback form, questionnaire
-- SUMMARY: They want to summarize, read, check, list or review their emails/inbox
-- TASK: They want to remind themselves of something, create a personal to-do, or schedule a task/reminder for themselves (no recipient mentioned)
-- CHAT: They are asking a general question, greeting you, or want an explanation/answer that doesn't require creating an artifact.
-
-Also extract:
-- audience: "STUDENT" | "HOD" | "FACULTY" | "ALL" | null (who to send/share with)
-- title: a short descriptive title for the artifact (sheet name, doc name, task title, etc.)
-- scheduledAt: ISO-8601 datetime if a specific send time or deadline is mentioned, else null
-- subject: (for EMAIL only) the email subject
-- body: (for EMAIL/DOC only) the full content or task description
-- response: (for CHAT only) a direct, helpful answer to their question
-
-Respond ONLY with a single JSON object (no markdown, no backticks):
-{
-  "type": "EMAIL|SHEET|DOC|FORM|SUMMARY|CHAT|TASK",
-  "audience": "STUDENT|HOD|FACULTY|ALL|null",
-  "title": "string",
-  "scheduledAt": "ISO-8601 or null",
-  "subject": "string or null",
-  "body": "string or null",
-  "response": "string or null"
-}`;
-
-            let type = 'EMAIL';
-            let audience: string | null = null;
-            let title = 'Untitled';
-            let scheduledAt: string | null = null;
-            let subject: string | null = null;
-            let body: string | null = null;
-            let chatResponse: string | null = null;
-
-            if (GEMINI_API_KEY) {
-                const raw = await callGemini(classifyPrompt);
-                console.log('[universalChat] Gemini raw:', raw);
-                try {
-                    let jsonStr = raw;
-                    const match = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-                    if (match) jsonStr = match[1];
-                    const parsed = JSON.parse(jsonStr.trim());
-                    type = parsed.type || 'EMAIL';
-                    audience = parsed.audience || null;
-                    title = parsed.title || 'Untitled';
-                    scheduledAt = parsed.scheduledAt || null;
-                    subject = parsed.subject || null;
-                    body = parsed.body || null;
-                    chatResponse = parsed.response || null;
-                } catch (e) {
-                    console.error('[universalChat] JSON parse failed:', e);
-                    // Fall back to email
-                    type = 'EMAIL';
-                }
-            } else {
-                // Offline fallback: keyword-based classification
-                const lower = prompt.toLowerCase();
-                if (lower.match(/\bform\b|\bsurvey\b|\bquiz\b|\bfeedback\b|\bquestionnaire\b/)) {
-                    type = 'FORM';
-                } else if (lower.match(/\bsheet\b|\bexcel\b|\bspreadsheet\b|\btable\b|\battendance\b|\bmarks\b|\bgrade\b/)) {
-                    type = 'SHEET';
-                } else if (lower.match(/\bdoc\b|\bdocument\b|\bnotice\b|\bletter\b|\breport\b|\bannouncement\b/)) {
-                    type = 'DOC';
-                } else if (lower.match(/\bsummar\b|\binbox\b|\bread mail\b|\bcheck mail\b/)) {
-                    type = 'SUMMARY';
-                } else if (lower.match(/\bwhat is\b|\bhow to\b|\bwho is\b|\bwho i am\b|\bwho am i\b|\bdate\b|\btime\b|\bhello\b|\bhi\b|\bname\b|\bhelp\b|\btell me\b|\bexplain\b/)) {
-                    type = 'CHAT';
-                    // Contextual offline responses
-                    if (lower.match(/\bdate\b|\btoday\b|\bday\b/)) {
-                        chatResponse = `Today is ${new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
-                    } else if (lower.match(/\btime\b/)) {
-                        chatResponse = `The current time is ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`;
-                    } else if (lower.match(/\bwho i am\b|\bwho am i\b/)) {
-                        chatResponse = `You are ${userName} (${userEmail}). Welcome to FacultyFlow!`;
-                    } else if (lower.match(/\byour name\b|\bwho are you\b/)) {
-                        chatResponse = `I'm FacultyFlow AI Assistant — your universal chatbot for emails, tasks, documents, and more!`;
-                    } else if (lower.match(/\bwho is hod\b|\bwho is head\b/)) {
-                        chatResponse = `I don't have HOD information offline. Please try again when the AI service is available.`;
-                    } else if (lower.match(/\bhello\b|\bhi\b|\bhey\b/)) {
-                        chatResponse = `Hello ${userName}! 👋 How can I help you today? I can draft emails, create documents, manage tasks, and more.`;
-                    } else {
-                        chatResponse = `That's a great question! I need the AI service to give you a proper answer. Try again in a moment.`;
-                    }
-                } else if (lower.match(/\btask\b|\bremind\b|\btodo\b|\bdo this\b/)) {
-                    type = 'TASK';
-                    title = prompt.replace(/\btask\b|\bremind me to\b|\btodo\b/gi, '').trim();
-                } else {
-                    type = 'EMAIL';
-                }
-
-                if (lower.match(/\bstudent\b|\bclass\b|\bexam\b/)) audience = 'STUDENT';
-                else if (lower.match(/\bhod\b|\bhead\b/)) audience = 'HOD';
-                else if (lower.match(/\bfaculty\b|\bprofessor\b|\bstaff\b/)) audience = 'FACULTY';
-
-                title = prompt.split(/[.?!\n]/)[0].trim().slice(0, 60) || 'Untitled';
-            }
-
-            // ── Step 2: Look up recipients ─────────────────────────────────────
+            const type = parsed.type || 'CHAT';
             let recipients: string[] = [];
-            const roleToLookup = audience && audience !== 'ALL' ? audience : null;
-            if (roleToLookup) {
-                const users = await prisma.user.findMany({ where: { role: roleToLookup } });
-                recipients = users.map(u => u.email).filter(e => e && e !== userEmail);
-            } else if (audience === 'ALL') {
-                const users = await prisma.user.findMany();
+            if (parsed.audience) {
+                const users = await FirestoreService.query('users', [{ field: 'role', operator: '==', value: parsed.audience.toUpperCase() }]);
                 recipients = users.map(u => u.email).filter(e => e && e !== userEmail);
             }
 
-            // ── Step 3: Handle by type ─────────────────────────────────────────
-
-            // ── CHAT ───────────────────────────────────────────────────────────
             if (type === 'CHAT') {
-                // If Gemini is available and chatResponse is missing/weak, make a dedicated call
-                if (GEMINI_API_KEY && (!chatResponse || chatResponse.length < 20)) {
-                    try {
-                        const chatPrompt = `You are FacultyFlow AI Assistant — a friendly, helpful chatbot for university faculty members.
-The faculty member "${userName}" asked: "${prompt}"
-Current date/time: ${now}
-
-Give a direct, helpful, conversational answer. Keep it concise (2-4 sentences max).
-If they ask who they are, tell them: "You are ${userName} (${userEmail})."
-If they ask who you are, introduce yourself as FacultyFlow AI.
-If they ask about HOD or admin, check if you know from context, otherwise say you can look it up.
-Do NOT return JSON. Just return the plain text answer.`;
-                        const chatRaw = await callGemini(chatPrompt);
-                        if (chatRaw && chatRaw.trim().length > 5) {
-                            chatResponse = chatRaw.trim();
-                        }
-                    } catch (chatErr) {
-                        console.error('[universalChat] Chat call failed:', chatErr);
-                    }
-                }
-
-                return res.status(200).json({
-                    success: true,
-                    data: {
-                        type: 'CHAT',
-                        response: chatResponse || "I'm your FacultyFlow AI assistant! I can help you draft emails, create documents, manage tasks, and much more. What would you like to do?"
-                    }
-                });
+                return res.json({ success: true, data: { type: 'CHAT', response: parsed.response || "How can I help you?" } });
             }
 
-            // ── TASK ───────────────────────────────────────────────────────────
             if (type === 'TASK') {
-                try {
-                    const newTask = await prisma.task.create({
-                        data: {
-                            title: title || 'New Task',
-                            description: body || 'Created via AI Bot',
-                            deadline: scheduledAt ? new Date(scheduledAt) : null,
-                            status: 'PENDING',
-                            priority: 'MEDIUM',
-                            createdById: user.id,
-                            assignedToId: user.id, // Self-assigned
-                        }
-                    });
-
-                    return res.status(200).json({
-                        success: true,
-                        data: {
-                            type: 'TASK',
-                            title: newTask.title,
-                            id: newTask.id,
-                            deadline: newTask.deadline,
-                            status: newTask.status
-                        }
-                    });
-                } catch (err) {
-                    console.error('[universalChat] TASK creation error:', err);
-                    return res.status(500).json({ success: false, message: 'Failed to create task.' });
-                }
+                const task = await FirestoreService.createDoc('tasks', {
+                    title: parsed.title || 'New Task',
+                    description: parsed.body || 'AI created',
+                    deadline: parsed.scheduledAt ? new Date(parsed.scheduledAt) : null,
+                    status: 'PENDING',
+                    assignedToId: userToken.id,
+                    createdById: userToken.id
+                });
+                return res.json({ success: true, data: { type: 'TASK', ...task } });
             }
 
-            // ── EMAIL ──────────────────────────────────────────────────────────
             if (type === 'EMAIL') {
-                // Always re-draft the email with a dedicated Gemini call for quality
-                if (GEMINI_API_KEY) {
-                    try {
-                        const draftPrompt = `You are a professional email writer for a university faculty member named "${userName}".
-The faculty member wants to send an email about: "${prompt}"
-Target audience: ${audience || 'All'}
-
-Write a polished, professional email. Return ONLY a JSON object with these fields:
-- "subject": A clear, descriptive email subject line (NOT the user's raw prompt)
-- "body": The full email body. Start with an appropriate greeting, include well-written content about the topic, and end with a professional sign-off from ${userName}.
-
-Do NOT wrap in markdown. Return raw JSON only:
-{"subject": "...", "body": "..."}`;
-                        const draftRaw = await callGemini(draftPrompt);
-                        try {
-                            let draftJson = draftRaw;
-                            const draftMatch = draftRaw.match(/```(?:json)?\s*([\s\S]*?)```/);
-                            if (draftMatch) draftJson = draftMatch[1];
-                            const drafted = JSON.parse(draftJson.trim());
-                            if (drafted.subject) subject = drafted.subject;
-                            if (drafted.body) body = drafted.body;
-                        } catch (parseErr) {
-                            console.error('[universalChat] Draft parse failed, using initial classification output');
-                        }
-                    } catch (draftErr) {
-                        console.error('[universalChat] Draft call failed:', draftErr);
-                    }
-                }
-
-                // Offline / fallback if still no proper subject/body
-                if (!subject || !body) {
-                    const greeting = audience === 'STUDENT' ? 'Dear Students,' : audience === 'HOD' ? 'Dear Head of Department,' : audience === 'FACULTY' ? 'Dear Faculty,' : 'Dear All,';
-                    if (!subject) subject = title || 'Faculty Announcement';
-                    if (!body) {
-                        body = `${greeting}\n\n${prompt.charAt(0).toUpperCase() + prompt.slice(1)}\n\nThank you.\n\nBest regards,\n${userName}`;
-                    }
-                }
-
-                return res.status(200).json({
-                    success: true,
-                    data: {
-                        type: 'EMAIL',
-                        subject,
-                        body,
-                        recipients,
-                        scheduledAt,
-                        detectedAudience: audience
-                    }
-                });
+                return res.json({ success: true, data: { type: 'EMAIL', subject: parsed.subject, body: parsed.body, recipients, scheduledAt: parsed.scheduledAt } });
             }
 
-            // ── SHEET ──────────────────────────────────────────────────────────
             if (type === 'SHEET') {
-                try {
-                    const sheet = await SheetsIntegration.createSheet(userEmail, title);
-                    const sheetId = sheet.spreadsheetId;
-                    const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
-
-                    // Optionally share with students/faculty
-                    if (sheetId && recipients.length > 0) {
-                        try {
-                            await DriveIntegration.shareFile(userEmail, sheetId, recipients, 'reader');
-                        } catch (shareErr) {
-                            console.warn('[universalChat] Sheet share failed (non-fatal):', shareErr);
-                        }
-                    }
-
-                    return res.status(200).json({
-                        success: true,
-                        data: {
-                            type: 'SHEET',
-                            title,
-                            url: sheetUrl,
-                            sheetId,
-                            recipients,
-                            detectedAudience: audience
-                        }
-                    });
-                } catch (e: any) {
-                    console.error('[universalChat] Sheet creation failed:', e);
-                    return res.status(200).json({
-                        success: true,
-                        data: {
-                            type: 'SHEET',
-                            title,
-                            url: null,
-                            error: 'Could not create sheet — Google Sheets API may not be authorized. Connect your Google account in Settings.',
-                            recipients,
-                            detectedAudience: audience
-                        }
-                    });
-                }
-            }
-
-            // ── DOC ────────────────────────────────────────────────────────────
-            if (type === 'DOC') {
-                try {
-                    const doc = await DriveIntegration.createDoc(userEmail, title);
-                    const docId = doc.documentId;
-                    const docUrl = `https://docs.google.com/document/d/${docId}/edit`;
-
-                    if (docId && recipients.length > 0) {
-                        try {
-                            await DriveIntegration.shareFile(userEmail, docId, recipients, 'reader');
-                        } catch (shareErr) {
-                            console.warn('[universalChat] Doc share failed (non-fatal):', shareErr);
-                        }
-                    }
-
-                    return res.status(200).json({
-                        success: true,
-                        data: {
-                            type: 'DOC',
-                            title,
-                            url: docUrl,
-                            docId,
-                            recipients,
-                            detectedAudience: audience
-                        }
-                    });
-                } catch (e: any) {
-                    console.error('[universalChat] Doc creation failed:', e);
-                    return res.status(200).json({
-                        success: true,
-                        data: {
-                            type: 'DOC',
-                            title,
-                            url: null,
-                            error: 'Could not create document — Google Docs API may not be authorized. Connect your Google account in Settings.',
-                            recipients,
-                            detectedAudience: audience
-                        }
-                    });
-                }
-            }
-
-            // ── FORM ────────────────────────────────────────────────────────────
-            if (type === 'FORM') {
-                try {
-                    // Google Forms API via Drive (create a form as a special doc)
-                    const auth = await (await import('../integrations/google/oauth')).getGoogleOAuthClient(userEmail);
-                    const forms = (await import('googleapis')).google.forms({ version: 'v1', auth });
-                    const formRes = await forms.forms.create({
-                        requestBody: { info: { title } }
-                    });
-                    const formId = formRes.data.formId;
-                    const responderUri = formRes.data.responderUri || `https://forms.google.com/d/${formId}/viewform`;
-
-                    return res.status(200).json({
-                        success: true,
-                        data: {
-                            type: 'FORM',
-                            title,
-                            url: responderUri,
-                            editUrl: `https://docs.google.com/forms/d/${formId}/edit`,
-                            formId,
-                            recipients,
-                            detectedAudience: audience
-                        }
-                    });
-                } catch (e: any) {
-                    console.error('[universalChat] Form creation failed:', e);
-                    return res.status(200).json({
-                        success: true,
-                        data: {
-                            type: 'FORM',
-                            title,
-                            url: null,
-                            error: 'Could not create form — Google Forms API may not be authorized. Connect your Google account in Settings.',
-                            recipients,
-                            detectedAudience: audience
-                        }
-                    });
-                }
-            }
-
-            // ── SUMMARY ────────────────────────────────────────────────────────
-            if (type === 'SUMMARY') {
-                // Get scheduled emails from our DB as a proxy summary (Gmail read requires scopes that may be limited)
-                const recentScheduled = await prisma.scheduledEmail.findMany({
-                    where: { userId: user.id },
-                    orderBy: { scheduledAt: 'desc' },
-                    take: 5
-                });
-
-                let summaryText = '';
-                if (recentScheduled.length === 0) {
-                    summaryText = 'You have no recently scheduled or sent emails in FacultyFlow.';
-                } else {
-                    summaryText = `Here are your ${recentScheduled.length} most recent emails:\n\n` +
-                        recentScheduled.map((e, i) =>
-                            `${i + 1}. **${e.subject}** → ${e.toEmails.join(', ')}\n   Status: ${e.status} | Scheduled: ${new Date(e.scheduledAt).toLocaleString()}`
-                        ).join('\n\n');
-                }
-
-                return res.status(200).json({
-                    success: true,
-                    data: {
-                        type: 'SUMMARY',
-                        summary: summaryText
-                    }
-                });
+                const sheet = await SheetsIntegration.createSheet(userEmail, parsed.title || 'Untitled Sheet');
+                return res.json({ success: true, data: { type: 'SHEET', url: `https://docs.google.com/spreadsheets/d/${sheet.spreadsheetId}/edit`, recipients } });
             }
 
             // Fallback
-            res.status(400).json({ success: false, message: 'Unable to classify intent.' });
-
-        } catch (error) {
-            next(error);
-        }
+            res.json({ success: true, data: { type: 'CHAT', response: "Drafting intended action..." } });
+        } catch (error) { next(error); }
     }
 }

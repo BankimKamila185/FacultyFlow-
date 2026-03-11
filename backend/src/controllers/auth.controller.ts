@@ -1,14 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/AuthService';
-import { prisma } from '../models/prisma';
+import { FirestoreService } from '../services/FirestoreService';
 import { generateToken } from '../utils/jwt';
 
 const setAuthCookie = (res: Response, token: string) => {
     const isProd = process.env.NODE_ENV === 'production';
     res.cookie('auth_token', token, {
         httpOnly: true,
-        secure: isProd, // Must be true for SameSite=None
-        sameSite: isProd ? 'none' : 'lax', // 'none' allows cross-site cookies
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 };
@@ -43,10 +43,6 @@ export class AuthController {
         }
     }
 
-    /**
-     * DEV ONLY: Login as any existing faculty user by email — no Google required.
-     * POST /api/auth/dev-login  { "email": "meetd@itm.edu" }
-     */
     static async devLogin(req: Request, res: Response, next: NextFunction) {
         try {
             const isProd = process.env.NODE_ENV === 'production';
@@ -61,16 +57,19 @@ export class AuthController {
                 return res.status(400).json({ success: false, error: 'email is required' });
             }
 
-            // Find or create user
-            let user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-            if (!user) {
-                user = await prisma.user.create({
-                    data: { email: email.toLowerCase(), name: email.split('@')[0], role: 'FACULTY' }
+            let user = await FirestoreService.query('users', [{ field: 'email', operator: '==', value: email.toLowerCase() }]);
+            let userData = user[0];
+
+            if (!userData) {
+                userData = await FirestoreService.createDoc('users', {
+                    email: email.toLowerCase(),
+                    name: email.split('@')[0],
+                    role: 'FACULTY',
+                    createdAt: new Date().toISOString()
                 });
             }
 
-            // Generate real JWT token
-            const token = generateToken({ id: user.id, email: user.email, role: user.role });
+            const token = generateToken({ id: userData.id, email: userData.email, role: userData.role });
 
             setAuthCookie(res, token);
 
@@ -78,11 +77,11 @@ export class AuthController {
                 success: true,
                 data: {
                     user: { 
-                        id: user.id, 
-                        email: user.email, 
-                        name: user.name, 
-                        role: user.role,
-                        devUser: user.devModeContext ? JSON.parse(user.devModeContext) : null
+                        id: userData.id, 
+                        email: userData.email, 
+                        name: userData.name, 
+                        role: userData.role,
+                        devUser: userData.devModeContext ? JSON.parse(userData.devModeContext) : null
                     },
                     token
                 }
@@ -111,7 +110,7 @@ export class AuthController {
             const userId = (req as any).user?.id;
             if (!userId) return res.status(401).json({ success: false, error: 'Not authenticated' });
 
-            const user = await prisma.user.findUnique({ where: { id: userId } });
+            const user = await FirestoreService.getDoc<any>('users', userId);
             if (!user) return res.status(404).json({ success: false, error: 'User not found' });
 
             res.status(200).json({
@@ -136,9 +135,8 @@ export class AuthController {
             const userId = (req as any).user?.id;
             const { devUser } = req.body;
 
-            await prisma.user.update({
-                where: { id: userId },
-                data: { devModeContext: devUser ? JSON.stringify(devUser) : null }
+            await FirestoreService.updateDoc('users', userId, {
+                devModeContext: devUser ? JSON.stringify(devUser) : null
             });
 
             res.status(200).json({ success: true, message: 'Dev context updated' });
@@ -156,11 +154,13 @@ export class AuthController {
                 return res.status(400).json({ success: false, error: 'fcmToken is required' });
             }
 
-            await prisma.deviceToken.upsert({
-                where: { token: fcmToken },
-                update: { userId },
-                create: { token: fcmToken, userId }
-            });
+            const existingTokens = await FirestoreService.query('deviceTokens', [{ field: 'token', operator: '==', value: fcmToken }]);
+            
+            if (existingTokens.length > 0) {
+                await FirestoreService.updateDoc('deviceTokens', existingTokens[0].id, { userId });
+            } else {
+                await FirestoreService.createDoc('deviceTokens', { token: fcmToken, userId });
+            }
 
             res.status(200).json({ success: true, message: 'FCM Token registered' });
         } catch (error) {

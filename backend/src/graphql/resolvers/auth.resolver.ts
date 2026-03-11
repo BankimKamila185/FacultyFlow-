@@ -1,12 +1,11 @@
 import { AuthService } from '../../services/AuthService';
+import { FirestoreService } from '../../services/FirestoreService';
 
 export const authResolvers = {
     Query: {
         currentUser: async (_: any, __: any, context: any) => {
             if (!context.user) return null;
-            return context.prisma.user.findUnique({
-                where: { id: context.user.id }
-            });
+            return await FirestoreService.getDoc('users', context.user.id);
         }
     },
     Mutation: {

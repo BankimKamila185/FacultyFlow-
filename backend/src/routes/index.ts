@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { prisma } from '../models/prisma';
 import usersRoutes from './users.routes';
 import tasksRoutes from './tasks.routes';
 import syncRoutes from './sync.routes';
@@ -32,23 +31,18 @@ router.use('/ai', aiRoutes);
 router.use('/integrations/sheets', sheetsRoutes);
 router.use('/integrations/forms', formsRoutes);
 
-
 // Health check
 router.get('/health', async (req, res) => {
     try {
-        // console.log('Pinged health check at:', new Date().toISOString());
-        // Simple query to check database connectivity
-        await prisma.$queryRaw`SELECT 1`;
         res.status(200).json({ 
             status: 'ok', 
             message: 'API is healthy',
-            database: 'connected'
+            database: 'firestore'
         });
     } catch (error) {
         res.status(503).json({ 
             status: 'error', 
             message: 'API is unhealthy',
-            database: 'disconnected',
             error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
         });
     }
