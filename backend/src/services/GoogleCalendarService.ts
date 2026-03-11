@@ -1,11 +1,10 @@
 import { google, calendar_v3 } from 'googleapis';
-import { User, Task } from '@prisma/client';
 
 export class GoogleCalendarService {
     /**
      * Creates a Google Calendar event for a given Task
      */
-    static async createEventForTask(user: User, task: Task): Promise<string | null> {
+    static async createEventForTask(user: any, task: any): Promise<string | null> {
         if (!user.googleAccessToken) {
             console.warn(`User ${user.email} has no Google Access Token, cannot sync to calendar.`);
             return null;
@@ -21,16 +20,17 @@ export class GoogleCalendarService {
 
         const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
+        const deadline = task.deadline.toDate ? task.deadline.toDate() : new Date(task.deadline);
+
         const event: calendar_v3.Schema$Event = {
             summary: `FacultyFlow Task: ${task.title}`,
             description: task.description || 'Auto-generated from FacultyFlow.',
             start: {
-                // Assuming deadline is the eod, we can create an all-day event or 1-hour event
-                dateTime: new Date(task.deadline.getTime() - 60 * 60 * 1000).toISOString(),
-                timeZone: 'Asia/Kolkata', // Set to Indian Standard Time based on system info, customize as needed
+                dateTime: new Date(deadline.getTime() - 60 * 60 * 1000).toISOString(),
+                timeZone: 'Asia/Kolkata',
             },
             end: {
-                dateTime: task.deadline.toISOString(),
+                dateTime: deadline.toISOString(),
                 timeZone: 'Asia/Kolkata',
             },
             reminders: {

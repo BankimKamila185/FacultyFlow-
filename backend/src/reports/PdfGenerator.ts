@@ -1,16 +1,17 @@
 import PDFDocument from 'pdfkit';
-import { prisma } from '../models/prisma';
+import { FirestoreService } from '../services/FirestoreService';
 import fs from 'fs';
-import path from 'path';
 
 export class PdfGenerator {
     static async generateTasksReport(): Promise<Buffer> {
         return new Promise(async (resolve, reject) => {
             try {
-            // Use singleton prisma
-                const tasks = await prisma.task.findMany({
-                    include: { assignedTo: true, workflow: true },
-                    orderBy: { deadline: 'asc' }
+                const tasks = await FirestoreService.getCollection('tasks');
+
+                const sortedTasks = tasks.sort((a, b) => {
+                    const dA = a.deadline?.toDate ? a.deadline.toDate() : (a.deadline ? new Date(a.deadline) : new Date(0));
+                    const dB = b.deadline?.toDate ? b.deadline.toDate() : (b.deadline ? new Date(b.deadline) : new Date(0));
+                    return dA.getTime() - dB.getTime();
                 });
 
                 const doc = new PDFDocument();
@@ -24,14 +25,17 @@ export class PdfGenerator {
                 doc.fontSize(20).text('FacultyFlow Tasks Report', { align: 'center' });
                 doc.moveDown();
 
-                tasks.forEach((t: any) => {
+                for (const t of sortedTasks) {
+                    const user = t.assignedToId ? await FirestoreService.getDoc<any>('users', t.assignedToId) : null;
+                    const deadline = t.deadline?.toDate ? t.deadline.toDate() : (t.deadline ? new Date(t.deadline) : null);
+
                     doc.fontSize(12).text(`Title: ${t.title}`);
                     doc.fontSize(10).text(`Status: ${t.status}`);
-                    doc.fontSize(10).text(`Assigned To: ${t.assignedTo?.name || 'Unassigned'}`);
-                    const dl = t.deadline ? t.deadline.toISOString().split('T')[0] : 'None';
+                    doc.fontSize(10).text(`Assigned To: ${user?.name || 'Unassigned'}`);
+                    const dl = deadline ? deadline.toISOString().split('T')[0] : 'None';
                     doc.fontSize(10).text(`Deadline: ${dl}`);
                     doc.moveDown();
-                });
+                }
 
                 doc.end();
             } catch (error) {
@@ -48,22 +52,13 @@ export class PdfGenerator {
 
                 doc.pipe(writeStream);
 
-                // Header
                 doc.fontSize(25).text(title, { align: 'center' });
                 doc.moveDown();
-
-                // Content
                 doc.fontSize(12).text(content);
-
-                // Finalize PDF file
                 doc.end();
 
-                writeStream.on('finish', () => {
-                    resolve(outputPath);
-                });
-                writeStream.on('error', (err) => {
-                    reject(err);
-                });
+                writeStream.on('finish', () => resolve(outputPath));
+                writeStream.on('error', (err) => reject(err));
 
             } catch (error) {
                 reject(error);

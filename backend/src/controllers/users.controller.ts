@@ -1,19 +1,15 @@
 import { Request, Response } from 'express';
-import { prisma } from '../models/prisma';
+import { FirestoreService } from '../services/FirestoreService';
 
 /**
  * GET /api/users/profile/:email
- * Public debug endpoint — returns full profile for a faculty by email.
- * Shows: user info, all assigned tasks with sprint/sub-event/colleagues.
  */
 export const getFacultyProfile = async (req: Request, res: Response): Promise<void> => {
     try {
         const { email } = req.params;
+        const normalizedEmail = email.toLowerCase().trim();
 
-        const user = await prisma.user.findUnique({
-            where: { email: email.toLowerCase() },
-            select: { id: true, email: true, name: true, role: true, photoUrl: true, theme: true, bio: true, department: true, createdAt: true }
-        });
+        const user = await FirestoreService.findFirst('users', 'email', '==', normalizedEmail);
 
         if (!user) {
             res.status(404).json({ success: false, message: `No user found with email: ${email}` });
@@ -21,46 +17,43 @@ export const getFacultyProfile = async (req: Request, res: Response): Promise<vo
         }
 
         // All tasks where this person is a responsible party
-        const responsibles = await prisma.taskResponsible.findMany({
-            where: { email: email.toLowerCase() },
-            include: {
-                task: {
-                    include: {
-                        workflow: true,
-                        responsibles: true,
-                    }
-                }
-            },
-            orderBy: { createdAt: 'asc' }
-        });
+        const responsibles = await FirestoreService.query('taskResponsibles', [{ field: 'email', operator: '==', value: normalizedEmail }]);
 
-        const tasks = responsibles.map((tr: any) => {
-            const colleagues = tr.task.responsibles
-                .filter((r: any) => r.email !== email.toLowerCase())
+        const tasks = await Promise.all(responsibles.map(async (tr: any) => {
+            const task = await FirestoreService.getDoc<any>('tasks', tr.taskId);
+            if (!task) return null;
+
+            const workflow = task.workflowId ? await FirestoreService.getDoc<any>('workflows', task.workflowId) : null;
+            const allResponsibles = await FirestoreService.query('taskResponsibles', [{ field: 'taskId', operator: '==', value: task.id }]);
+
+            const colleagues = allResponsibles
+                .filter((r: any) => r.email !== normalizedEmail)
                 .map((r: any) => ({ email: r.email, role: r.role }));
 
             return {
-                id: tr.task.id,
-                title: tr.task.title,
-                status: tr.task.status,
-                deadline: tr.task.deadline,
-                startDate: tr.task.startDate,
-                sprintName: tr.task.workflow?.sprintName || null,
-                subEvent: tr.task.workflow?.type || null,
+                id: task.id,
+                title: task.title,
+                status: task.status,
+                deadline: task.deadline,
+                startDate: task.startDate,
+                sprintName: workflow?.sprintName || null,
+                subEvent: workflow?.type || null,
                 myRole: tr.role,
-                responsibleTeam: tr.task.description,
+                responsibleTeam: task.description,
                 colleagues,
             };
-        });
+        }));
+
+        const validTasks = tasks.filter(t => t !== null);
 
         // Stats
-        const completed = tasks.filter((t: any) => t.status === 'COMPLETED').length;
-        const inProgress = tasks.filter((t: any) => t.status === 'IN_PROGRESS').length;
-        const pending = tasks.filter((t: any) => t.status === 'PENDING').length;
+        const completed = validTasks.filter((t: any) => t.status === 'COMPLETED').length;
+        const inProgress = validTasks.filter((t: any) => t.status === 'IN_PROGRESS' || t.status === 'IN_REVIEW').length;
+        const pending = validTasks.filter((t: any) => t.status === 'PENDING').length;
 
         // Group by sprint
         const bySprint: Record<string, any[]> = {};
-        for (const t of tasks) {
+        for (const t of validTasks) {
             const key = t.sprintName || 'Unassigned Sprint';
             if (!bySprint[key]) bySprint[key] = [];
             bySprint[key].push(t);
@@ -70,19 +63,19 @@ export const getFacultyProfile = async (req: Request, res: Response): Promise<vo
             success: true,
             profile: {
                 user,
-                stats: { total: tasks.length, completed, inProgress, pending },
+                stats: { total: validTasks.length, completed, inProgress, pending },
                 tasksBySprint: bySprint,
-                allTasks: tasks,
+                allTasks: validTasks,
             }
         });
     } catch (error: any) {
+        console.error('Error fetching faculty profile:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
 /**
  * PUT /api/users/profile
- * Authenticated — updates the current user's profile information.
  */
 export const updateFacultyProfile = async (req: any, res: Response): Promise<void> => {
     try {
@@ -94,16 +87,18 @@ export const updateFacultyProfile = async (req: any, res: Response): Promise<voi
             return;
         }
 
-        const updatedUser = await prisma.user.update({
-            where: { email: userEmail.toLowerCase() },
-            data: {
-                ...(name && { name }),
-                ...(photoUrl && { photoUrl }),
-                ...(theme && { theme }),
-                ...(bio && { bio }),
-                ...(department && { department }),
-            },
-            select: { id: true, email: true, name: true, role: true, photoUrl: true, theme: true, bio: true, department: true } as any
+        const user = await FirestoreService.findFirst('users', 'email', '==', userEmail.toLowerCase());
+        if (!user) {
+            res.status(404).json({ success: false, message: 'User not found' });
+            return;
+        }
+
+        const updatedUser = await FirestoreService.updateDoc('users', user.id, {
+            ...(name && { name }),
+            ...(photoUrl && { photoUrl }),
+            ...(theme && { theme }),
+            ...(bio && { bio }),
+            ...(department && { department }),
         });
 
         res.json({
@@ -112,13 +107,13 @@ export const updateFacultyProfile = async (req: any, res: Response): Promise<voi
             data: updatedUser
         });
     } catch (error: any) {
+        console.error('Error updating profile:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
 /**
  * GET /api/users
- * Authenticated — returns all users with their task stats. Used for Admin Dashboard.
  */
 export const getAllFacultyStats = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -128,29 +123,24 @@ export const getAllFacultyStats = async (req: Request, res: Response): Promise<v
             return;
         }
 
-        const facultyList = await prisma.user.findMany({
-            where: { role: 'FACULTY' },
-            select: { id: true, email: true, name: true, photoUrl: true, department: true }
-        });
+        const facultyList = await FirestoreService.query('users', [{ field: 'role', operator: '==', value: 'FACULTY' }]);
 
-        // Group tasks by assigned user
-        const tasks = await prisma.task.findMany({
-            select: {
-                assignedToId: true,
-                status: true,
-                responsibles: { select: { email: true } }
-            }
-        });
-
-        const statsMap = facultyList.map(faculty => {
-            // Find tasks where faculty is assignedToId OR in responsibles list
-            const userTasks = tasks.filter(t => 
-                t.assignedToId === faculty.id || 
-                t.responsibles.some(r => r.email === faculty.email)
-            );
+        const statsMap = await Promise.all(facultyList.map(async (faculty: any) => {
+            const assignedTasks = await FirestoreService.query('tasks', [{ field: 'assignedToId', operator: '==', value: faculty.id }]);
+            const respEntries = await FirestoreService.query('taskResponsibles', [{ field: 'email', operator: '==', value: faculty.email?.toLowerCase() }]);
+            const responsibleTasks = await Promise.all(respEntries.map(tr => FirestoreService.getDoc('tasks', tr.taskId)));
+            
+            // De-duplicate
+            const map = new Map();
+            [...assignedTasks, ...responsibleTasks].forEach(t => t && map.set(t.id, t));
+            const userTasks = Array.from(map.values());
 
             return {
-                ...faculty,
+                id: faculty.id,
+                email: faculty.email,
+                name: faculty.name,
+                photoUrl: faculty.photoUrl,
+                department: faculty.department,
                 stats: {
                     total: userTasks.length,
                     completed: userTasks.filter(t => t.status === 'COMPLETED').length,
@@ -159,10 +149,11 @@ export const getAllFacultyStats = async (req: Request, res: Response): Promise<v
                     overdue: userTasks.filter(t => t.status === 'OVERDUE').length
                 }
             };
-        });
+        }));
 
         res.json({ success: true, data: statsMap });
     } catch (error: any) {
+        console.error('Error fetching all faculty stats:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

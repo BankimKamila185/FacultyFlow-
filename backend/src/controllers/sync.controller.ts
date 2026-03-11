@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { parse } from 'csv-parse/sync';
-import { prisma } from '../models/prisma';
+import { FirestoreService } from '../services/FirestoreService';
 
 const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1tKxwemxRO9HWpYwkuS98Ey8EGiRjHO5QszI4R0zWFF0/export?format=csv&gid=1903243312';
 
@@ -12,10 +12,10 @@ export const updateSheetUrl = async (req: Request, res: Response): Promise<void>
         if (!userEmail) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
         if (!sheetUrl) { res.status(400).json({ success: false, message: 'sheetUrl is required' }); return; }
 
-        await prisma.user.update({
-            where: { email: userEmail },
-            data: { sheetUrl }
-        });
+        const user = await FirestoreService.findFirst('users', 'email', '==', userEmail.toLowerCase());
+        if (!user) { res.status(404).json({ success: false, message: 'User not found' }); return; }
+
+        await FirestoreService.updateDoc('users', user.id, { sheetUrl });
 
         res.json({ success: true, message: 'Sheet URL updated successfully' });
     } catch (error: any) {
@@ -32,20 +32,20 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
         }
 
         let sheetUrl = DEFAULT_SHEET_URL;
-        const user = await prisma.user.findUnique({ where: { email: userEmail } });
+        const user = await FirestoreService.findFirst('users', 'email', '==', userEmail.toLowerCase());
         if (user?.sheetUrl) sheetUrl = user.sheetUrl;
 
         console.log(`User ${userEmail} is syncing from: ${sheetUrl}`);
         
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+        const timeoutId = setTimeout(() => controller.abort(), 60000); 
 
         let response;
         try {
             response = await fetch(sheetUrl, { signal: controller.signal });
         } catch (fetchError: any) {
             if (fetchError.name === 'AbortError') {
-                throw new Error('Sync timed out after 30 seconds. Please check your sheet URL or connectivity.');
+                throw new Error('Sync timed out after 60 seconds.');
             }
             throw fetchError;
         } finally {
@@ -63,18 +63,16 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
             trim: true
         });
 
-        console.log(`Parsed ${records.length} records. Fetching existing data for optimization...`);
+        console.log(`Parsed ${records.length} records. Fetching existing data...`);
 
-        // 1. Fetch all existing data for lookups
+        // 1. Fetch lookups
         const [existingWorkflows, existingUsers] = await Promise.all([
-            prisma.workflow.findMany(),
-            prisma.user.findMany()
+            FirestoreService.getCollection('workflows'),
+            FirestoreService.getCollection('users')
         ]);
 
-        const workflowMap = new Map(existingWorkflows.map(wf => [`${wf.type.trim()}|${(wf.sprintName || '').trim()}`, wf]));
-        const userMap = new Map(existingUsers.map(u => [u.email.toLowerCase(), u]));
-
-        console.log(`Initial lookups: ${existingWorkflows.length} workflows, ${existingUsers.length} users.`);
+        const workflowMap = new Map(existingWorkflows.map((wf: any) => [`${wf.type.trim()}|${(wf.sprintName || '').trim()}`, wf]));
+        const userMap = new Map(existingUsers.map((u: any) => [u.email.toLowerCase(), u]));
 
         let syncedTasks = 0;
         let notificationsCreated = 0;
@@ -112,18 +110,11 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
 
             const primaryEmail = responsibleEmails[0] || 'system@facultyflow.app';
 
-            // 1. Status & Dates
+            // Status mapping
             let status = 'PENDING';
-            if (statusStr === 'Completed') {
-                status = 'COMPLETED';
-            } else if (statusStr === 'Started' || statusStr === 'In Progress') {
-                status = 'IN_PROGRESS';
-            }
-
-            // Keyword mapping for "Review"
-            if (status !== 'COMPLETED' && title.toLowerCase().includes('review')) {
-                status = 'IN_REVIEW';
-            }
+            if (statusStr === 'Completed') status = 'COMPLETED';
+            else if (statusStr === 'Started' || statusStr === 'In Progress') status = 'IN_PROGRESS';
+            if (status !== 'COMPLETED' && title.toLowerCase().includes('review')) status = 'IN_REVIEW';
 
             let startDate: Date | null = null;
             if (startDateStr) {
@@ -136,7 +127,7 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
                 if (!isNaN(d.getTime())) deadline = d;
             }
 
-            // 2. Handle Workflow
+            // Handle Workflow
             let workflowId: string | null = null;
             if (subEvent && subEvent.trim()) {
                 const trimmedType = subEvent.trim();
@@ -145,81 +136,73 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
                 
                 let workflow = workflowMap.get(wfKey);
                 if (!workflow) {
-                    workflow = await prisma.workflow.create({
-                        data: {
-                            type: trimmedType,
-                            sprintName: trimmedSprint || null,
-                            status: status === 'COMPLETED' ? 'COMPLETED' : 'ACTIVE'
-                        }
+                    workflow = await FirestoreService.createDoc('workflows', {
+                        type: trimmedType,
+                        sprintName: trimmedSprint || null,
+                        status: status === 'COMPLETED' ? 'COMPLETED' : 'ACTIVE'
                     });
                     workflowMap.set(wfKey, workflow);
                 }
                 workflowId = workflow.id;
             }
 
-            // 3. Handle Primary User
+            // Handle Primary User
             let primaryUser = userMap.get(primaryEmail.toLowerCase());
             if (!primaryUser) {
-                primaryUser = await prisma.user.create({
-                    data: { email: primaryEmail, name: primaryEmail.split('@')[0], role: 'FACULTY' }
-                });
+                primaryUser = await FirestoreService.createDoc('users', { email: primaryEmail, name: primaryEmail.split('@')[0], role: 'FACULTY' });
                 userMap.set(primaryEmail.toLowerCase(), primaryUser);
             }
 
-            // 4. Upsert Task (Finding by title and workflow)
-            const existingTask = await prisma.task.findFirst({
-                where: { title: title.trim(), workflowId }
-            });
+            // Find Task
+            const existingTasks = await FirestoreService.query('tasks', [
+                { field: 'title', operator: '==', value: title.trim() },
+                { field: 'workflowId', operator: '==', value: workflowId }
+            ]);
+            const existingTask = existingTasks[0];
 
             let taskId: string;
             if (existingTask) {
-                const updated = await prisma.task.update({
-                    where: { id: existingTask.id },
-                    data: {
-                        status,
-                        deadline,
-                        startDate,
-                        description: responsibleTeam || existingTask.description,
-                        assignedToId: primaryUser.id,
-                    }
+                const updated = await FirestoreService.updateDoc<any>('tasks', existingTask.id, {
+                    status,
+                    deadline,
+                    startDate,
+                    description: responsibleTeam || existingTask.description,
+                    assignedToId: primaryUser.id,
                 });
                 taskId = updated.id;
             } else {
-                const newTask = await prisma.task.create({
-                    data: {
-                        title: title.trim(),
-                        status,
-                        deadline,
-                        startDate,
-                        description: responsibleTeam || '',
-                        workflowId,
-                        assignedToId: primaryUser.id,
-                        createdById: primaryUser.id,
-                    }
+                const newTask = await FirestoreService.createDoc<any>('tasks', {
+                    title: title.trim(),
+                    status,
+                    deadline,
+                    startDate,
+                    description: responsibleTeam || '',
+                    workflowId,
+                    assignedToId: primaryUser.id,
+                    createdById: primaryUser.id,
                 });
                 taskId = newTask.id;
 
-                await prisma.notification.create({
-                    data: {
-                        message: `New task assigned: "${title.trim()}"`,
-                        type: 'IN_APP',
-                        userId: primaryUser.id,
-                    }
+                await FirestoreService.createDoc('notifications', {
+                    message: `New task assigned: "${title.trim()}"`,
+                    type: 'IN_APP',
+                    userId: primaryUser.id,
+                    isRead: false
                 });
                 notificationsCreated++;
             }
 
-            // 5. Update Responsibles (Batch create if needed, but sequential for now as count is small)
-            await prisma.taskResponsible.deleteMany({ where: { taskId } });
-            if (responsibleEmails.length > 0) {
-                await prisma.taskResponsible.createMany({
-                    data: responsibleEmails.map((email, i) => ({
-                        taskId,
-                        email: email.toLowerCase(),
-                        role: `responsible_${i + 1}`
-                    }))
-                });
-            }
+            // Update Responsibles
+            const existingResp = await FirestoreService.query('taskResponsibles', [{ field: 'taskId', operator: '==', value: taskId }]);
+            await Promise.all(existingResp.map(r => FirestoreService.deleteDoc('taskResponsibles', r.id)));
+            
+            await Promise.all(responsibleEmails.map((email, i) => 
+                FirestoreService.createDoc('taskResponsibles', {
+                    taskId,
+                    email: email.toLowerCase(),
+                    role: `responsible_${i + 1}`
+                })
+            ));
 
             syncedTasks++;
         }

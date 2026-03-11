@@ -1,17 +1,16 @@
 import { Request, Response } from 'express';
-import { prisma } from '../models/prisma';
+import { FirestoreService } from '../services/FirestoreService';
+import { Task } from '../services/TaskService';
 
 /**
  * GET /api/tasks/my
  * Returns tasks where the logged-in user's email appears in any Responsible Person slot.
- * Each task includes sprint name, sub event (workflow type), colleagues, and the user's role.
  */
 export const getMyTasks = async (req: Request, res: Response): Promise<void> => {
     try {
         const user = (req as any).user;
         let userEmail = user?.email;
         
-        // If an admin requests a specific email via query parameter, use that instead
         const requestedEmail = req.query.email as string;
         if (requestedEmail && (user?.role === 'ADMIN' || user?.role === 'HOD')) {
             userEmail = requestedEmail;
@@ -22,24 +21,23 @@ export const getMyTasks = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
-        // Find all TaskResponsible rows for this email
-        const myResponsibles = await prisma.taskResponsible.findMany({
-            where: { email: userEmail.toLowerCase() },
-            include: {
-                task: {
-                    include: {
-                        workflow: true,
-                        responsibles: true,
-                    }
-                }
-            },
-            orderBy: { createdAt: 'asc' }
-        });
+        const normalizedEmail = userEmail.toLowerCase().trim();
 
-        const tasks = myResponsibles.map((tr: any) => {
-            const task = tr.task;
-            const colleagues = task.responsibles
-                .filter((r: any) => r.email !== userEmail.toLowerCase())
+        // 1. Fetch all tasks where this user is responsible
+        // Since we don't have a direct 'responsibles' collection anymore, 
+        // we'll assume a 'taskResponsibles' collection or search within 'tasks'.
+        // Let's assume 'taskResponsibles' collection for consistency with old Prisma structure.
+        const myResponsibles = await FirestoreService.query('taskResponsibles', [{ field: 'email', operator: '==', value: normalizedEmail }]);
+
+        const tasks = await Promise.all(myResponsibles.map(async (tr: any) => {
+            const task = await FirestoreService.getDoc<Task>('tasks', tr.taskId);
+            if (!task) return null;
+
+            const workflow = task.workflowId ? await FirestoreService.getDoc('workflows', task.workflowId) : null;
+            const allResponsibles = await FirestoreService.query('taskResponsibles', [{ field: 'taskId', operator: '==', value: task.id }]);
+
+            const colleagues = allResponsibles
+                .filter((r: any) => r.email !== normalizedEmail)
                 .map((r: any) => ({ email: r.email, role: r.role }));
 
             return {
@@ -49,21 +47,25 @@ export const getMyTasks = async (req: Request, res: Response): Promise<void> => 
                 deadline: task.deadline,
                 startDate: task.startDate,
                 description: task.description,
-                sprintName: task.workflow?.sprintName || null,
-                subEvent: task.workflow?.type || null,
+                sprintName: workflow?.sprintName || null,
+                subEvent: workflow?.type || null,
                 myRole: tr.role,
                 responsibleTeam: task.description,
-                remarks: task.remarks || 'noo remark',
+                remarks: task.remarks || 'no remark',
                 colleagues,
                 workflowId: task.workflowId,
             };
-        }).sort((a: any, b: any) => {
+        }));
+
+        const filteredTasks = tasks.filter(t => t !== null).sort((a: any, b: any) => {
             if (!a.startDate) return 1;
             if (!b.startDate) return -1;
-            return new Date(a.startDate).getTime() - new Date(b.startDate).getTime();
+            const timeA = a.startDate.toDate ? a.startDate.toDate().getTime() : new Date(a.startDate).getTime();
+            const timeB = b.startDate.toDate ? b.startDate.toDate().getTime() : new Date(b.startDate).getTime();
+            return timeA - timeB;
         });
 
-        res.json({ success: true, data: tasks });
+        res.json({ success: true, data: filteredTasks });
     } catch (error: any) {
         console.error('Error fetching my tasks:', error);
         res.status(500).json({ success: false, message: error.message });
@@ -79,52 +81,46 @@ export const getAllTasks = async (req: Request, res: Response): Promise<void> =>
         const user = (req as any).user;
         let isFaculty = user?.role?.toUpperCase() === 'FACULTY';
         
-        // Admin View Override
         const requestedEmail = req.query.email as string;
-        let whereClause: any = {};
+        let tasks: any[] = [];
         
         if (requestedEmail && (user?.role === 'ADMIN' || user?.role === 'HOD')) {
-            // Force faculty view logic but for the requested email
-            whereClause = {
-                OR: [
-                    { responsibles: { some: { email: requestedEmail.toLowerCase() } } }
-                ]
-            };
+            const myResponsibles = await FirestoreService.query('taskResponsibles', [{ field: 'email', operator: '==', value: requestedEmail.toLowerCase() }]);
+            tasks = await Promise.all(myResponsibles.map(tr => FirestoreService.getDoc('tasks', tr.taskId)));
         } else if (isFaculty) {
-            whereClause = {
-                OR: [
-                    { assignedToId: user.id },
-                    { responsibles: { some: { email: user.email?.toLowerCase() } } }
-                ]
-            };
+            // Find assigned or responsible
+            const assigned = await FirestoreService.query('tasks', [{ field: 'assignedToId', operator: '==', value: user.id }]);
+            const respEntries = await FirestoreService.query('taskResponsibles', [{ field: 'email', operator: '==', value: user.email?.toLowerCase() }]);
+            const responsible = await Promise.all(respEntries.map(tr => FirestoreService.getDoc('tasks', tr.taskId)));
+            
+            // Merge and de-duplicate
+            const map = new Map();
+            [...assigned, ...responsible].forEach(t => t && map.set(t.id, t));
+            tasks = Array.from(map.values());
+        } else {
+            tasks = await FirestoreService.getCollection('tasks');
         }
 
-        console.log(`[Tasks] getAllTasks for ${user?.email}. Role: ${user?.role}. isFaculty: ${isFaculty}. Query:`, JSON.stringify(whereClause));
+        const formatted = await Promise.all(tasks.filter(t => !!t).map(async (task: any) => {
+            const workflow = task.workflowId ? await FirestoreService.getDoc('workflows', task.workflowId) : null;
+            const assignedTo = task.assignedToId ? await FirestoreService.getDoc('users', task.assignedToId) : null;
+            const responsibles = await FirestoreService.query('taskResponsibles', [{ field: 'taskId', operator: '==', value: task.id }]);
 
-        const tasks = await prisma.task.findMany({
-            where: whereClause,
-            include: {
-                workflow: true,
-                assignedTo: { select: { email: true, name: true } },
-                responsibles: true,
-            },
-            orderBy: { startDate: 'asc' }
-        });
-
-        const formatted = tasks.map((task: any) => ({
-            id: task.id,
-            title: task.title,
-            status: task.status,
-            deadline: task.deadline,
-            startDate: task.startDate,
-            description: task.description,
-            priority: task.priority,
-            sprintName: task.workflow?.sprintName || null,
-            subEvent: task.workflow?.type || null,
-            assignedTo: task.assignedTo,
-            responsibles: task.responsibles,
-            remarks: task.remarks || 'no remark',
-            workflowId: task.workflowId,
+            return {
+                id: task.id,
+                title: task.title,
+                status: task.status,
+                deadline: task.deadline,
+                startDate: task.startDate,
+                description: task.description,
+                priority: task.priority,
+                sprintName: workflow?.sprintName || null,
+                subEvent: workflow?.type || null,
+                assignedTo: assignedTo ? { email: assignedTo.email, name: assignedTo.name } : null,
+                responsibles,
+                remarks: task.remarks || 'no remark',
+                workflowId: task.workflowId,
+            };
         }));
 
         res.json({ success: true, data: formatted });
@@ -136,7 +132,6 @@ export const getAllTasks = async (req: Request, res: Response): Promise<void> =>
 
 /**
  * PATCH /api/tasks/:id/status
- * Updates the status of a specific task.
  */
 export const updateTaskStatus = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -149,15 +144,15 @@ export const updateTaskStatus = async (req: Request, res: Response): Promise<voi
             return;
         }
 
-        // Check prerequisites if completing
-        if (status === 'COMPLETED') {
-            const currentTask = await prisma.task.findUnique({
-                where: { id },
-                include: { prerequisiteTask: true }
-            } as any);
+        const currentTask = await FirestoreService.getDoc<any>('tasks', id);
+        if (!currentTask) {
+             res.status(404).json({ success: false, message: 'Task not found' });
+             return;
+        }
 
-            const pre = (currentTask as any)?.prerequisiteTask;
-            if ((currentTask as any)?.prerequisiteTaskId && pre && pre.status !== 'COMPLETED') {
+        if (status === 'COMPLETED' && currentTask.prerequisiteTaskId) {
+            const pre = await FirestoreService.getDoc<any>('tasks', currentTask.prerequisiteTaskId);
+            if (pre && pre.status !== 'COMPLETED') {
                 res.status(400).json({ 
                     success: false, 
                     message: `Cannot complete task. Prerequisite task "${pre.title}" is not completed.` 
@@ -166,45 +161,23 @@ export const updateTaskStatus = async (req: Request, res: Response): Promise<voi
             }
         }
 
-        const task = await prisma.task.update({
-            where: { id },
-            data: { 
-                ...(status && { status }),
-                ...(req.body.priority && { priority: req.body.priority })
-            },
-            include: {
-                assignedTo: true,
-                createdBy: true
-            }
+        const updatedTask = await FirestoreService.updateDoc<any>('tasks', id, { 
+            status,
+            ...(req.body.priority && { priority: req.body.priority })
         });
 
         if (status === 'COMPLETED') {
             const currentUserId = (req as any).user?.id;
-            // Notify the creator if it was assigned to someone else
-            if (task.createdById && task.createdById !== currentUserId && task.createdById !== task.assignedToId) {
-                await prisma.notification.create({
-                    data: {
-                        userId: task.createdById,
-                        type: 'TASK_COMPLETED',
-                        message: `Task "${task.title}" was completed by ${task.assignedTo?.name || 'User'}`
-                    }
-                });
-            } else if (task.assignedToId && task.assignedToId !== currentUserId && task.assignedToId !== task.createdById) {
-                 // Or notify the assignee if they didn't complete it themselves
-                 await prisma.notification.create({
-                    data: {
-                        userId: task.assignedToId,
-                        type: 'TASK_COMPLETED',
-                        message: `Task "${task.title}" has been marked as completed`
-                    }
+            if (updatedTask.createdById && updatedTask.createdById !== currentUserId) {
+                await FirestoreService.createDoc('notifications', {
+                    userId: updatedTask.createdById,
+                    type: 'TASK_COMPLETED',
+                    message: `Task "${updatedTask.title}" was completed.`
                 });
             }
         }
 
-        // Trigger Google Sheets write-back if we had a dedicated job, but for now just update DB
-        // The SheetsController could be invoked here as well if needed.
-
-        res.json({ success: true, data: task, message: 'Task status updated successfully' });
+        res.json({ success: true, data: updatedTask, message: 'Task status updated successfully' });
     } catch (error: any) {
         console.error('Error updating task status:', error);
         res.status(500).json({ success: false, message: error.message });
@@ -213,7 +186,6 @@ export const updateTaskStatus = async (req: Request, res: Response): Promise<voi
 
 /**
  * POST /api/tasks/:id/ask-reason
- * Allows an admin/HOD to request a reason for a delayed/overdue task.
  */
 export const askReason = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -224,23 +196,17 @@ export const askReason = async (req: Request, res: Response): Promise<void> => {
         }
 
         const { id } = req.params;
-        const task = await prisma.task.findUnique({
-            where: { id },
-            include: { assignedTo: true }
-        });
+        const task = await FirestoreService.getDoc<any>('tasks', id);
 
         if (!task) {
             res.status(404).json({ success: false, message: 'Task not found' });
             return;
         }
 
-        // Create a notification for the assigned user
-        await prisma.notification.create({
-            data: {
-                userId: task.assignedToId,
-                type: 'REASON_REQUEST',
-                message: `Admin requested a reason for the delay on task: "${task.title}". Please add a remark.`
-            }
+        await FirestoreService.createDoc('notifications', {
+            userId: task.assignedToId,
+            type: 'REASON_REQUEST',
+            message: `Admin requested a reason for the delay on task: "${task.title}". Please add a remark.`
         });
 
         res.json({ success: true, message: 'Reason request sent successfully' });
@@ -249,10 +215,7 @@ export const askReason = async (req: Request, res: Response): Promise<void> => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-/**
- * POST /api/tasks/nudge-all
- * Allows an admin/HOD to request reasons for ALL overdue tasks at once.
- */
+
 export const batchAskReason = async (req: Request, res: Response): Promise<void> => {
     try {
         const currentUser = (req as any).user;
@@ -261,26 +224,20 @@ export const batchAskReason = async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        const overdueTasks = await prisma.task.findMany({
-            where: { status: 'OVERDUE' },
-            select: { id: true, title: true, assignedToId: true }
-        });
+        const overdueTasks = await FirestoreService.query('tasks', [{ field: 'status', operator: '==', value: 'OVERDUE' }]);
 
         if (overdueTasks.length === 0) {
             res.json({ success: true, message: 'No overdue tasks to nudge.' });
             return;
         }
 
-        // Create notifications for all assigned users of overdue tasks
-        const notificationData = overdueTasks.map(task => ({
-            userId: task.assignedToId,
-            type: 'REASON_REQUEST',
-            message: `Admin requested a reason for the delay on task: "${task.title}". Please add a remark.`
-        }));
-
-        await prisma.notification.createMany({
-            data: notificationData
-        });
+        await Promise.all(overdueTasks.map(task => 
+            FirestoreService.createDoc('notifications', {
+                userId: task.assignedToId,
+                type: 'REASON_REQUEST',
+                message: `Admin requested a reason for the delay on task: "${task.title}". Please add a remark.`
+            })
+        ));
 
         res.json({ success: true, message: `Successfully nudged ${overdueTasks.length} tasks.` });
     } catch (error: any) {

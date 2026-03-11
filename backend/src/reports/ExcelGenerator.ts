@@ -1,23 +1,24 @@
 import * as xlsx from 'xlsx';
-import { prisma } from '../models/prisma';
+import { FirestoreService } from '../services/FirestoreService';
 
 export class ExcelGenerator {
     static async generateTasksReport(): Promise<Buffer> {
-        const tasks = await prisma.task.findMany({
-            include: {
-                assignedTo: true,
-                workflow: true
-            },
-            orderBy: { deadline: 'asc' }
-        });
+        const tasks = await FirestoreService.getCollection('tasks');
+        
+        const data = await Promise.all(tasks.map(async (t: any) => {
+            const user = t.assignedToId ? await FirestoreService.getDoc<any>('users', t.assignedToId) : null;
+            const workflow = t.workflowId ? await FirestoreService.getDoc<any>('workflows', t.workflowId) : null;
+            
+            const deadline = t.deadline?.toDate ? t.deadline.toDate() : (t.deadline ? new Date(t.deadline) : null);
 
-        const data = tasks.map(t => ({
-            'Task ID': t.id,
-            'Title': t.title,
-            'Status': t.status,
-            'Deadline': t.deadline ? t.deadline.toISOString().split('T')[0] : 'N/A',
-            'Sourced From': t.workflow?.type || 'Manual',
-            'Assigned To': t.assignedTo?.email || 'Unassigned'
+            return {
+                'Task ID': t.id,
+                'Title': t.title,
+                'Status': t.status,
+                'Deadline': deadline ? deadline.toISOString().split('T')[0] : 'N/A',
+                'Sourced From': workflow?.type || 'Manual',
+                'Assigned To': user?.email || 'Unassigned'
+            };
         }));
 
         const wb = xlsx.utils.book_new();

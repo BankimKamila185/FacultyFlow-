@@ -1,7 +1,18 @@
-import { User } from '@prisma/client';
 import { firebaseAdmin } from '../integrations/firebase';
 import { generateToken } from '../utils/jwt';
-import { prisma } from '../models/prisma';
+import { FirestoreService } from './FirestoreService';
+
+export interface User {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+    googleId?: string;
+    googleAccessToken?: string;
+    googleRefreshToken?: string;
+    createdAt?: any;
+    updatedAt?: any;
+}
 
 export class AuthService {
     static async loginWithGoogle(idToken: string, googleAccessToken?: string, googleRefreshToken?: string): Promise<{ user: User; token: string }> {
@@ -18,31 +29,24 @@ export class AuthService {
 
         const normalizedEmail = payload.email.toLowerCase().trim();
 
-        let user = await prisma.user.findUnique({
-            where: { email: normalizedEmail },
-        });
+        let user = await FirestoreService.findFirst<User>('users', 'email', '==', normalizedEmail);
 
         if (!user) {
             // Create a default faculty user or restrict if necessary in production
-            user = await prisma.user.create({
-                data: {
-                    email: normalizedEmail,
-                    name: payload.name || normalizedEmail.split('@')[0],
-                    googleId: payload.uid, // the user's firebase UID
-                    role: 'FACULTY',
-                    googleAccessToken: googleAccessToken || null,
-                    googleRefreshToken: googleRefreshToken || null,
-                },
+            user = await FirestoreService.createDoc<User>('users', {
+                email: normalizedEmail,
+                name: payload.name || normalizedEmail.split('@')[0],
+                googleId: payload.uid, // the user's firebase UID
+                role: 'FACULTY',
+                googleAccessToken: googleAccessToken || null,
+                googleRefreshToken: googleRefreshToken || null,
             });
         } else {
             // Update the user's google ID and access token
-            user = await prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    googleId: payload.uid,
-                    googleAccessToken: googleAccessToken || user.googleAccessToken,
-                    ...(googleRefreshToken ? { googleRefreshToken } : {}) // Only update if new one is provided
-                },
+            user = await FirestoreService.updateDoc<User>('users', user.id, {
+                googleId: payload.uid,
+                googleAccessToken: googleAccessToken || user.googleAccessToken || null,
+                ...(googleRefreshToken ? { googleRefreshToken } : {}) // Only update if new one is provided
             });
         }
 

@@ -1,4 +1,4 @@
-import { prisma } from '../models/prisma';
+import { FirestoreService } from './FirestoreService';
 import { GmailIntegration } from '../integrations/gmail';
 
 export class EmailScheduler {
@@ -7,25 +7,35 @@ export class EmailScheduler {
         
         // Initial check and then start interval
         this.processPendingEmails()
-            .then(() => {
+            .then(async () => {
                 console.log('[Scheduler] Initial check completed. Starting interval...');
                 setInterval(() => this.processPendingEmails(), 60000);
+
+                // Run pending task reminders every 24 hours
+                const { ReminderService } = await import('./ReminderService');
+                ReminderService.sendPendingTaskReminders();
+                setInterval(() => ReminderService.sendPendingTaskReminders(), 24 * 60 * 60 * 1000);
             })
-            .catch(err => {
+            .catch(async (err) => {
                 console.error('[Scheduler] Initialization failed:', err.message);
-                // Still start interval, maybe DB comes back online
                 setInterval(() => this.processPendingEmails(), 60000);
+
+                const { ReminderService } = await import('./ReminderService');
+                setInterval(() => ReminderService.sendPendingTaskReminders(), 24 * 60 * 60 * 1000);
             });
     }
 
     private static async processPendingEmails() {
         try {
+            const emails = await FirestoreService.query('scheduledEmails', [
+                { field: 'status', operator: '==', value: 'PENDING' }
+            ]);
+
             const now = new Date();
-            const pending = await prisma.scheduledEmail.findMany({
-                where: {
-                    status: 'PENDING',
-                    scheduledAt: { lte: now }
-                }
+            // Filter locally for scheduledAt <= now since firestore query might need specific timestamp format
+            const pending = emails.filter((e: any) => {
+                const scheduledAt = e.scheduledAt?.toDate ? e.scheduledAt.toDate() : new Date(e.scheduledAt);
+                return scheduledAt <= now;
             });
 
             if (pending.length === 0) return;
@@ -38,28 +48,18 @@ export class EmailScheduler {
                         await GmailIntegration.sendEmail(email.fromEmail, to, email.subject, email.body);
                     }
                     
-                    await prisma.scheduledEmail.update({
-                        where: { id: email.id },
-                        data: { status: 'SENT' }
-                    });
+                    await FirestoreService.updateDoc('scheduledEmails', email.id, { status: 'SENT' });
                     console.log(`[Scheduler] Successfully sent email ID: ${email.id}`);
                 } catch (err: any) {
                     console.error(`[Scheduler] Failed to send email ID: ${email.id}`, err);
-                    await prisma.scheduledEmail.update({
-                        where: { id: email.id },
-                        data: { 
-                            status: 'FAILED',
-                            error: err.message || 'Unknown error'
-                        }
+                    await FirestoreService.updateDoc('scheduledEmails', email.id, { 
+                        status: 'FAILED',
+                        error: err.message || 'Unknown error'
                     });
                 }
             }
         } catch (error: any) {
-            if (error.code === 'P2021') {
-                console.error('[Scheduler] Database table "ScheduledEmail" is missing. Please run migrations/db push.');
-            } else {
-                console.error('[Scheduler Critical Error]', error);
-            }
+            console.error('[Scheduler Critical Error]', error);
         }
     }
 }

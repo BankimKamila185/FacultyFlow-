@@ -1,7 +1,7 @@
 import { Queue, Worker, Job } from 'bullmq';
 import { redis } from '../utils/redis';
 import winston from 'winston';
-import { prisma } from '../models/prisma';
+import { FirestoreService } from '../services/FirestoreService';
 import fetch from 'node-fetch';
 
 const logger = winston.createLogger({
@@ -19,59 +19,54 @@ const workflowWorker = new Worker(
         logger.info(`Processing workflow job ${job.id}`, job.data);
         
         if (job.data.action === 'CHECK_OVERDUE') {
-            // Use singleton prisma
-            
-            const overdueTasks = await prisma.task.updateMany({
-                where: {
-                    status: { notIn: ['COMPLETED', 'OVERDUE'] },
-                    deadline: { lt: new Date() }
-                },
-                data: { status: 'OVERDUE' }
-            });
-            logger.info(`Marked ${overdueTasks.count} tasks as OVERDUE`);
+            const now = new Date();
+            // Fetch tasks that are not COMPLETED/OVERDUE and past deadline
+            const tasks = await FirestoreService.getCollection('tasks');
+            const overdueTasks = tasks.filter((t: any) => 
+                !['COMPLETED', 'OVERDUE'].includes(t.status) && 
+                t.deadline && (t.deadline.toDate ? t.deadline.toDate() : new Date(t.deadline)) < now
+            );
 
-            // Multi-tier Escalation Engine
-            const escalationThreshold = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48 hours ago
-            const tasksToEscalate = await prisma.task.findMany({
-                where: {
-                    status: 'OVERDUE',
-                    deadline: { lt: escalationThreshold },
-                    escalationLevel: { lt: 2 }
-                },
-                include: { assignedTo: true }
+            for (const task of overdueTasks) {
+                await FirestoreService.updateDoc('tasks', task.id, { status: 'OVERDUE' });
+            }
+            logger.info(`Marked ${overdueTasks.length} tasks as OVERDUE`);
+
+            // Escalate tasks older than 48h
+            const escalationThreshold = new Date(Date.now() - 48 * 60 * 60 * 1000);
+            const tasksToEscalate = overdueTasks.filter((t: any) => {
+                const deadline = t.deadline?.toDate ? t.deadline.toDate() : new Date(t.deadline);
+                return deadline < escalationThreshold && (t.escalationLevel || 0) < 2;
             });
 
             if (tasksToEscalate.length > 0) {
-                const hods = await prisma.user.findMany({ where: { role: 'HOD' } });
+                const hods = await FirestoreService.query('users', [{ field: 'role', operator: '==', value: 'HOD' }]);
                 
                 for (const task of tasksToEscalate) {
+                    const assignee = await FirestoreService.getDoc<any>('users', task.assignedToId);
                     logger.info(`Escalating task ${task.id} to HOD`);
                     
                     for (const hod of hods) {
-                        await prisma.notification.create({
-                            data: {
-                                userId: hod.id,
-                                message: `[ESCALATION ALERT] Task "${task.title}" assigned to ${task.assignedTo.name} is critically overdue (>48h).`,
-                                type: 'ALERT'
-                            }
+                        await FirestoreService.createDoc('notifications', {
+                            userId: hod.id,
+                            message: `[ESCALATION ALERT] Task "${task.title}" assigned to ${assignee?.name || 'Unknown'} is critically overdue (>48h).`,
+                            type: 'ALERT',
+                            isRead: false
                         });
                     }
 
-                    await prisma.task.update({
-                        where: { id: task.id },
-                        data: { escalationLevel: 2 }
-                    });
+                    await FirestoreService.updateDoc('tasks', task.id, { escalationLevel: 2 });
                 }
             }
         }
         else if (job.data.action === 'SYNC_SHEETS') {
             logger.info('Running background periodic sheet sync...');
-            // In a real scenario, this could trigger sync for all users with custom sheet URLs
-            const res = await fetch('http://localhost:4000/api/sync', { method: 'POST' });
-            logger.info(`Periodic sync completed with status: ${res.status}`);
-        }
-        else if (job.data.action === 'TRANSITION_STATE') {
-            logger.info(`Transitioning workflow ${job.data.workflowId} to state ${job.data.nextState}`);
+            try {
+                const res = await fetch('http://localhost:4000/api/sync', { method: 'POST' });
+                logger.info(`Periodic sync completed with status: ${res.status}`);
+            } catch (e) {
+                logger.error('Failed to trigger periodic sync', e);
+            }
         }
     },
     { connection: redis as any }
@@ -99,20 +94,13 @@ const emailWorker = new Worker(
     { connection: redis as any }
 );
 
-workflowWorker.on('completed', (job) => logger.info(`Workflow Job ${job.id} completed.`));
-workflowWorker.on('failed', (job, err) => logger.error(`Workflow Job ${job?.id} failed:`, err));
-
-emailWorker.on('completed', (job) => logger.info(`Email Job ${job.id} completed.`));
-emailWorker.on('failed', (job, err) => logger.error(`Email Job ${job?.id} failed:`, err));
-
-// Periodic cron setup helper
 export async function setupCronJobs() {
     try {
         await workflowQueue.add('overdue-checker', { action: 'CHECK_OVERDUE' }, {
-            repeat: { pattern: '0 * * * *' } // Every hour
+            repeat: { pattern: '0 * * * *' }
         });
         await workflowQueue.add('sheet-syncer', { action: 'SYNC_SHEETS' }, {
-            repeat: { pattern: '0 */4 * * *' } // Every 4 hours
+            repeat: { pattern: '0 */4 * * *' }
         });
         logger.info('✅ Cron jobs scheduled mapping');
     } catch (e) {

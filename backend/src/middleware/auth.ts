@@ -1,16 +1,12 @@
-import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { verifyToken } from '../utils/jwt';
-import { prisma } from '../models/prisma';
+import { FirestoreService } from '../services/FirestoreService';
+import { RequestHandler } from 'express';
 
 export interface TokenPayload {
     id: string;
     email: string;
     role: string;
     [key: string]: any;
-}
-
-export interface AuthenticatedRequest extends Request {
-    user?: TokenPayload;
 }
 
 const isFacultyEmail = (email: string) => {
@@ -34,21 +30,13 @@ export const authenticate: RequestHandler = async (req: any, res, next) => {
     try {
         const decoded = verifyToken(token) as TokenPayload;
         
-        // Root Fix: Better Identity Resolution
         // 1. Try finding by ID
-        let dbUser = await prisma.user.findUnique({
-            where: { id: decoded.id },
-            select: { devModeContext: true, id: true, email: true, name: true, role: true }
-        });
+        let dbUser = await FirestoreService.getDoc('users', decoded.id);
 
-        // 2. Fallback to Email if ID doesn't match (e.g. DB reset or record recreated)
-        // This is the "Root Fix" for stale session IDs
+        // 2. Fallback to Email if ID doesn't match
         if (!dbUser && decoded.email) {
             console.log(`[Auth] ID mismatch for ${decoded.email}. Attempting email-based fallback.`);
-            dbUser = await prisma.user.findUnique({
-                where: { email: decoded.email.toLowerCase() },
-                select: { devModeContext: true, id: true, email: true, name: true, role: true }
-            });
+            dbUser = await FirestoreService.findFirst('users', 'email', '==', decoded.email.toLowerCase());
         }
 
         if (!dbUser) {
@@ -59,12 +47,10 @@ export const authenticate: RequestHandler = async (req: any, res, next) => {
         // Perspective Switching: Check if this user has a dev context set in DB
         if (dbUser.devModeContext) {
             try {
-                const context = JSON.parse(dbUser.devModeContext);
+                const context = typeof dbUser.devModeContext === 'string' ? JSON.parse(dbUser.devModeContext) : dbUser.devModeContext;
                 if (context && context.email) {
                     // Overwrite the request user identity with the mocked faculty member
-                    const mockedUser = await prisma.user.findUnique({
-                        where: { email: context.email.toLowerCase() }
-                    });
+                    const mockedUser = await FirestoreService.findFirst('users', 'email', '==', context.email.toLowerCase());
 
                     req.user = {
                         ...decoded,

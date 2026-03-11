@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { SheetsIntegration } from '../integrations/sheets';
-import { prisma } from '../models/prisma';
 
 export class SheetsController {
     static async listSheets(req: Request, res: Response) {

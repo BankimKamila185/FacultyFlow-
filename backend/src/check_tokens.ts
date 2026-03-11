@@ -1,16 +1,15 @@
-import { prisma } from './models/prisma';
+import { FirestoreService } from './services/FirestoreService';
 
 async function checkTokens() {
-  const tokens = await prisma.deviceToken.findMany({
-    include: { user: true }
-  });
+  const tokens = await FirestoreService.getCollection('deviceTokens');
   console.log('--- Registered FCM Tokens ---');
   if (tokens.length === 0) {
     console.log('No tokens found.');
   } else {
-    tokens.forEach(t => {
-      console.log(`User: ${t.user.email} | Token: ${t.token.substring(0, 20)}...`);
-    });
+    for (const t of tokens) {
+      const user = await FirestoreService.getDoc<any>('users', t.userId);
+      console.log(`User: ${user?.email || 'Unknown'} | Token: ${t.token.substring(0, 20)}...`);
+    }
   }
 }
 

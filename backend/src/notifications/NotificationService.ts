@@ -1,4 +1,4 @@
-import { prisma } from '../models/prisma';
+import { FirestoreService } from '../services/FirestoreService';
 import { GmailIntegration } from '../integrations/gmail';
 import winston from 'winston';
 
@@ -11,26 +11,31 @@ const logger = winston.createLogger({
 export class NotificationService {
     static async sendNotification(userId: string, message: string, type: string) {
         try {
-            const user = await prisma.user.findUnique({ where: { id: userId } });
+            const user = await FirestoreService.getDoc('users', userId);
             if (!user) throw new Error('User not found');
 
-            // 1. Log to DB (In-App Notification)
-            const notification = await prisma.notification.create({
-                data: {
-                    userId,
-                    message,
-                    type,
-                },
+            // 1. Log to Firestore (In-App Notification)
+            const notification = await FirestoreService.createDoc('notifications', {
+                userId,
+                message,
+                type,
+                isRead: false,
             });
 
             // 2. Dispatch Email if type requires it
-            if (type === 'EMAIL' || type === 'ALERT') {
+            if (type === 'EMAIL' || type === 'ALERT' || type === 'TASK_ASSIGNED') {
                 logger.info(`Dispatching email notification to ${user.email}`);
+                
+                let subject = 'FacultyFlow Notification';
+                if (type === 'TASK_ASSIGNED') {
+                    subject = 'New Task Assigned: FacultyFlow';
+                }
+
                 // Sending to themselves for now, as we need an authenticated sender's token
                 await GmailIntegration.sendEmail(
                     user.email, // Sender (needs OAuth token)
                     user.email, // Recipient
-                    'FacultyFlow Notification',
+                    subject,
                     message
                 );
             }
@@ -43,16 +48,12 @@ export class NotificationService {
     }
 
     static async markAsRead(notificationId: string) {
-        return prisma.notification.update({
-            where: { id: notificationId },
-            data: { isRead: true },
-        });
+        return FirestoreService.updateDoc('notifications', notificationId, { isRead: true });
     }
 
     static async getUserNotifications(userId: string) {
-        return prisma.notification.findMany({
-            where: { userId },
-            orderBy: { createdAt: 'desc' },
-        });
+        return FirestoreService.query('notifications', [
+            { field: 'userId', operator: '==', value: userId }
+        ]);
     }
 }
