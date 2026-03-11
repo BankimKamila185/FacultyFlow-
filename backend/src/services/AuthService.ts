@@ -10,6 +10,7 @@ export interface User {
     googleId?: string;
     googleAccessToken?: string;
     googleRefreshToken?: string;
+    devModeContext?: string | null;
     createdAt?: any;
     updatedAt?: any;
 }

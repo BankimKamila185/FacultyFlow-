@@ -14,6 +14,8 @@ export interface Task {
     workflowId?: string;
     assignedToId: string;
     createdById: string;
+    remarks?: string;
+    escalationLevel?: number;
     createdAt?: any;
     updatedAt?: any;
     assignedTo?: any;

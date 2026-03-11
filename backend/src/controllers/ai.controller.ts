@@ -114,6 +114,10 @@ export class AIController {
         } catch (error) { next(error); }
     }
 
+    static async sendPromptEmail(req: Request, res: Response, next: NextFunction) {
+        return AIController.draftPromptEmail(req, res, next);
+    }
+
     static async confirmSendEmail(req: Request, res: Response, next: NextFunction) {
         try {
             const userToken = (req as any).user;
