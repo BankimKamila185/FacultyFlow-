@@ -40,6 +40,7 @@ router.post('/login', AuthController.login);
 
 // DEV ONLY: login as any faculty by email without Google OAuth
 router.post('/dev-login', AuthController.devLogin);
+router.get('/firebase-status', AuthController.getFirebaseStatus);
 
 router.post('/logout', AuthController.logout);
 

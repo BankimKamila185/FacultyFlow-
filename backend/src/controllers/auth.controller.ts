@@ -86,8 +86,13 @@ export class AuthController {
                     token
                 }
             });
-        } catch (error) {
-            next(error);
+        } catch (error: any) {
+            console.error('Dev Login Error:', error);
+            res.status(500).json({ 
+                success: false, 
+                error: error.message || 'Internal Server Error',
+                detail: 'Ensure Firebase environment variables are set correctly on Render.'
+            });
         }
     }
 
@@ -165,6 +170,24 @@ export class AuthController {
             res.status(200).json({ success: true, message: 'FCM Token registered' });
         } catch (error) {
             next(error);
+        }
+    }
+
+    static async getFirebaseStatus(req: Request, res: Response) {
+        try {
+            const admin = require('../integrations/firebase').firebaseAdmin;
+            res.status(200).json({
+                success: true,
+                initialized: !!admin.apps.length,
+                appsCount: admin.apps.length,
+                envStatus: {
+                    hasProjectId: !!process.env.FIREBASE_PROJECT_ID,
+                    hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
+                    hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY
+                }
+            });
+        } catch (error: any) {
+            res.status(500).json({ success: false, error: error.message });
         }
     }
 }
