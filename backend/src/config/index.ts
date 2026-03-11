@@ -6,8 +6,7 @@ dotenv.config();
 const envSchema = z.object({
     PORT: z.string().default('4000'),
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-    DATABASE_URL: z.string(),
-    REDIS_URL: z.string(),
+    REDIS_URL: z.string().default('redis://localhost:6379'),
     JWT_SECRET: z.string(),
     JWT_EXPIRES_IN: z.string().default('7d'),
     GOOGLE_CLIENT_ID: z.string().optional(),

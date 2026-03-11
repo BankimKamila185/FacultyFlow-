@@ -2,7 +2,12 @@ import { firebaseAdmin } from '../integrations/firebase';
 import { firestore } from 'firebase-admin';
 
 export class FirestoreService {
-    private static db = firebaseAdmin.firestore();
+    private static get db() {
+        if (!firebaseAdmin.apps.length) {
+            throw new Error('Firebase Admin SDK not initialized. Please check your environment variables (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY).');
+        }
+        return firebaseAdmin.firestore();
+    }
 
     static async getCollection<T = any>(collectionName: string): Promise<T[]> {
         const snapshot = await this.db.collection(collectionName).get();

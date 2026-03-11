@@ -37,7 +37,8 @@ if (!admin.apps.length) {
                 });
                 logger.info(`Firebase Admin initialized successfully via ${serviceAccountPath}`);
             } catch (fileError) {
-                logger.warn('Firebase config missing and service-account.json not found. Firebase Admin SDK not initialized.');
+                const errorMsg = 'Firebase credentials missing. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY environment variables or provide a service-account.json file.';
+                logger.warn(errorMsg);
             }
         }
     } catch (error) {
