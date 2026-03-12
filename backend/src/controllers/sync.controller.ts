@@ -149,8 +149,17 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
             // Handle Primary User
             let primaryUser = userMap.get(primaryEmail.toLowerCase());
             if (!primaryUser) {
-                primaryUser = await FirestoreService.createDoc('users', { email: primaryEmail, name: primaryEmail.split('@')[0], role: 'FACULTY' });
+                primaryUser = await FirestoreService.createDoc('users', { 
+                    email: primaryEmail, 
+                    name: primaryEmail.split('@')[0], 
+                    role: 'FACULTY',
+                    department: responsibleTeam || null
+                });
                 userMap.set(primaryEmail.toLowerCase(), primaryUser);
+            } else if (!primaryUser.department && responsibleTeam) {
+                // Update department if it was missing
+                await FirestoreService.updateDoc('users', primaryUser.id, { department: responsibleTeam });
+                primaryUser.department = responsibleTeam;
             }
 
             // Find Task

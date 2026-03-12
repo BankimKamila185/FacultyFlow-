@@ -5,6 +5,7 @@ import { authenticate } from '../middleware/auth';
 const router = Router();
 
 router.get('/dashboard', authenticate, AnalyticsController.getDashboardMetrics);
+router.get('/dashboard-metrics', authenticate, AnalyticsController.getDashboardMetrics);
 router.get('/productivity', authenticate, AnalyticsController.getFacultyProductivity);
 router.get('/trends', authenticate, AnalyticsController.getTaskTrends);
 router.get('/compliance', authenticate, AnalyticsController.getDeadlineCompliance);

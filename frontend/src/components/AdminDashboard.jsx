@@ -1,15 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { API_URL } from '../config';
 import { fetchWithAuth, getAvatarUrl } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+
+const DEPARTMENTS = [
+    'Academic Administration', 'HOD', 'BU Head', 'ERP Team', 'Academics',
+    'CNV Team', 'Registrar General', 'Coordinator', 'Faculty',
+    'Academic Coordinator', 'Operations', 'Examination Department',
+    'Registrar Office', 'ERP Coordinator', 'Admin',
+    'Audit & Verification Team', 'Joint Registrar'
+];
 
 export default function AdminDashboard({ setActiveTab }) {
     const [facultyStats, setFacultyStats] = useState([]);
     const [globalMetrics, setGlobalMetrics] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [selectedFaculty, setSelectedFaculty] = useState(null);
-    const [facultyTasks, setFacultyTasks] = useState([]);
+    const [loading, setLoading] = useState(false);
     const [tasksLoading, setTasksLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [selectedFaculty, setSelectedFaculty] = useState(null);
+    const [facultyTasks, setFacultyTasks] = useState([]);
+    const [selectedDept, setSelectedDept] = useState(null);
+    const { currentUser } = useAuth();
 
     useEffect(() => {
         fetchData();
@@ -74,24 +86,68 @@ export default function AdminDashboard({ setActiveTab }) {
         }
     };
 
-    const handleNudgeAll = async () => {
-        const confirmNudge = window.confirm(`This will send a reminder to all faculty members with overdue tasks. Proceed?`);
-        if (!confirmNudge) return;
-        
+    const handleSync = async () => {
+        setIsSyncing(true);
         try {
-            const res = await fetchWithAuth(`${API_URL}/tasks/nudge-all`, { method: 'POST' });
+            const res = await fetchWithAuth(`${API_URL}/sync`, { method: 'POST' });
             const data = await res.json();
             if (data.success) {
-                alert(data.message);
-                fetchData(); // Refresh metrics
+                alert('Database synchronization complete!');
+                fetchData();
             } else {
-                alert('Nudge failed: ' + data.message);
+                alert('Sync failed: ' + data.message);
             }
         } catch (err) {
-            console.error('Error in batch nudge:', err);
-            alert('An error occurred during batch nudge.');
+            console.error('Sync error:', err);
+            alert('A network error occurred during sync.');
+        } finally {
+            setIsSyncing(false);
         }
     };
+
+    const handleNudgeAll = async () => {
+        try {
+            const res = await fetchWithAuth(`${API_URL}/users/nudge-all-delayed`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                alert('Successfully nudged all delayed faculty members.');
+            } else {
+                alert('Failed to nudge: ' + data.message);
+            }
+        } catch (err) {
+            console.error('Error nudging all:', err);
+            alert('An error occurred while nudging.');
+        }
+    };
+
+    const handleViewSheet = () => {
+        const url = currentUser?.sheetUrl || 'https://docs.google.com/spreadsheets/d/1tKxwemxRO9HWpYwkuS98Ey8EGiRjHO5QszI4R0zWFF0/edit';
+        window.open(url, '_blank');
+    };
+
+    const departmentData = DEPARTMENTS.map(dept => {
+        const matchingFaculty = facultyStats.filter(f => 
+            (f.department?.trim().toLowerCase() === dept.toLowerCase()) ||
+            (dept === 'Faculty' && (!f.department || f.department.trim() === ''))
+        );
+        
+        const stats = matchingFaculty.reduce((acc, f) => {
+            acc.total += (f.stats?.total || 0);
+            acc.completed += (f.stats?.completed || 0);
+            acc.pending += (f.stats?.pending || 0);
+            acc.overdue += (f.stats?.overdue || 0);
+            acc.inProgress += (f.stats?.inProgress || 0);
+            return acc;
+        }, { total: 0, completed: 0, pending: 0, overdue: 0, inProgress: 0 });
+
+        return {
+            name: dept,
+            facultyCount: matchingFaculty.length,
+            stats,
+            completionRate: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0,
+            faculty: matchingFaculty
+        };
+    });
 
     const sortedByCompletion = [...facultyStats].sort((a, b) => {
         const rateA = a.stats?.total > 0 ? (a.stats.completed / a.stats.total) : 0;
@@ -156,6 +212,41 @@ export default function AdminDashboard({ setActiveTab }) {
                 .fac-card:hover { transform: translateY(-4px); border-color: var(--primary); box-shadow: var(--shadow-md); }
 
                 .tasks-view { background: var(--bg-card); border-radius: 36px; padding: 3rem; border: 1px solid var(--border-color); box-shadow: var(--shadow-lg); transition: all 0.3s ease; }
+                
+                .btn-sync { background: #10B981; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 14px; font-weight: 800; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2); }
+                .btn-sync:hover { filter: brightness(1.1); transform: translateY(-1px); }
+                .btn-sync.loading { background: var(--text-dim); cursor: wait; transform: none; box-shadow: none; animation: pulse 1.5s infinite; }
+                @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+                .btn-secondary { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color); padding: 0.8rem 1.5rem; border-radius: 14px; font-weight: 700; cursor: pointer; }
+                .btn-secondary:hover { background: var(--bg-dark); border-color: var(--text-dim); }
+
+                .mini-stat { border-left: 1px solid var(--border-color); padding-left: 1.5rem; display: flex; flex-direction: column; justify-content: center; }
+                .mini-val { font-size: 1.5rem; font-weight: 950; color: var(--text-main); line-height: 1; }
+                .mini-lab { font-size: 0.7rem; font-weight: 800; color: var(--text-dim); text-transform: uppercase; margin-top: 0.2rem; }
+
+                /* Department Grid */
+                .dept-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+                .dept-card { background: var(--bg-card); border-radius: 20px; padding: 1.5rem; border: 1px solid var(--border-color); cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; gap: 1rem; position: relative; overflow: hidden; }
+                .dept-card:hover { transform: translateY(-5px); border-color: var(--primary); box-shadow: var(--shadow-md); }
+                .dept-name { font-size: 1.1rem; font-weight: 900; color: var(--text-main); letter-spacing: -0.02em; }
+                .dept-meta { font-size: 0.8rem; color: var(--text-dim); font-weight: 600; }
+                .dept-progress-info { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 0.5rem; }
+                .dept-rate { font-size: 1.4rem; font-weight: 950; color: var(--primary); }
+                
+                /* Modal */
+                .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 2000; animation: fadeIn 0.3s ease; }
+                .modal-content { background: var(--bg-surface); width: 90%; max-width: 650px; border-radius: 32px; border: 1px solid var(--border-color); padding: 2.5rem; box-shadow: var(--shadow-lg); animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); position: relative; max-height: 90vh; overflow-y: auto; }
+                @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+                
+                .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin: 1.5rem 0; }
+                .stat-box { padding: 1.25rem; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.4rem; }
+                .stat-box.completed { border-left: 4px solid #10B981; }
+                .stat-box.pending { border-left: 4px solid #F59E0B; }
+                .stat-box.overdue { border-left: 4px solid #EF4444; }
+                .stat-box.progress { border-left: 4px solid var(--primary); }
+                .stat-label { font-size: 0.75rem; font-weight: 800; color: var(--text-dim); text-transform: uppercase; }
+                .stat-value { font-size: 1.75rem; font-weight: 950; color: var(--text-main); }
             `}</style>
 
             <div className="admin-header">
@@ -164,6 +255,16 @@ export default function AdminDashboard({ setActiveTab }) {
                     <p>Strategic oversight of faculty operations and departmental flow.</p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button className="btn-secondary" onClick={handleViewSheet} title="Open Source Spreadsheet">
+                        Source Data
+                    </button>
+                    <button 
+                        className={`btn-sync ${isSyncing ? 'loading' : ''}`} 
+                        onClick={handleSync}
+                        disabled={isSyncing}
+                    >
+                        {isSyncing ? 'Syncing...' : 'Sync Master Data'}
+                    </button>
                    <button className="btn-vibrant" onClick={() => setActiveTab('Projects')}>
                         Portfolio View
                     </button>
@@ -171,30 +272,32 @@ export default function AdminDashboard({ setActiveTab }) {
             </div>
 
             {!selectedFaculty && (
-                <div className="metrics-row">
-                    <div className="metric-widget">
-                        <span className="metric-lab">Faculty Reach</span>
-                        <span className="metric-val">{facultyStats.length}</span>
-                        <div className="metric-trend trend-up">Active Personnel</div>
+                <div className="dashboard-section">
+                    <div className="section-header">
+                        <h3 className="section-title">Departmental Intelligence</h3>
                     </div>
-                    <div className="metric-widget">
-                        <span className="metric-lab">Live Workflows</span>
-                        <span className="metric-val">{globalMetrics?.workflows?.active || 0}</span>
-                        <div className="metric-trend trend-up" style={{ color: 'var(--primary)', background: 'rgba(99, 102, 241, 0.1)' }}>Deployment Phase</div>
-                    </div>
-                    <div className="metric-widget">
-                        <span className="metric-lab">Compliance Rate</span>
-                        <span className="metric-val">
-                            {globalMetrics?.tasks?.total > 0 
-                                ? Math.round(((globalMetrics.tasks.completed) / globalMetrics.tasks.total) * 100) 
-                                : 0}%
-                        </span>
-                        <div className="metric-trend trend-up">On-Time Pipeline</div>
-                    </div>
-                    <div className="metric-widget" style={{ borderColor: '#EF4444' }}>
-                        <span className="metric-lab" style={{ color: '#EF4444' }}>Instruction Blocks</span>
-                        <span className="metric-val" style={{ color: '#EF4444' }}>{globalMetrics?.tasks?.overdue || 0}</span>
-                        <div className="metric-trend" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444' }}>Immediate Attention</div>
+                    <div className="dept-grid">
+                        {departmentData.map(dept => (
+                            <div key={dept.name} className="dept-card" onClick={() => setSelectedDept(dept)}>
+                                <div>
+                                    <div className="dept-name">{dept.name}</div>
+                                    <div className="dept-meta">{dept.facultyCount} Active Members</div>
+                                </div>
+                                <div className="dept-progress-info">
+                                    <div>
+                                        <div className="metric-lab" style={{ fontSize: '0.65rem' }}>Process Status</div>
+                                        <div className="dept-rate">{dept.completionRate}%</div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div className="metric-lab" style={{ fontSize: '0.65rem' }}>Workload</div>
+                                        <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-main)' }}>{dept.stats.total} Tasks</div>
+                                    </div>
+                                </div>
+                                <div className="progress-container" style={{ height: '6px' }}>
+                                    <div className="progress-bar" style={{ width: `${dept.completionRate}%` }} />
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}
@@ -315,13 +418,29 @@ export default function AdminDashboard({ setActiveTab }) {
                 <div className="tasks-view">
                     <div className="tasks-header">
                         <div className="fac-top" style={{ gap: '1.75rem' }}>
-                            <img src={selectedFaculty.photoUrl || getAvatarUrl(selectedFaculty.email)} alt={selectedFaculty.name} className="fac-avatar" style={{width: 72, height: 72, borderRadius: '20px'}} />
-                            <div>
-                                <h3 style={{ fontSize: '2rem', fontWeight: 950, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.03em' }}>{selectedFaculty.name}</h3>
-                                <p style={{ color: 'var(--text-dim)', margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Analyzing {facultyTasks.length} active engagements</p>
+                            <img src={selectedFaculty.photoUrl || getAvatarUrl(selectedFaculty.email)} alt={selectedFaculty.name} className="fac-avatar" style={{width: 80, height: 80, borderRadius: '24px', border: '2px solid var(--border-color)'}} />
+                            <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div>
+                                        <h3 style={{ fontSize: '2.4rem', fontWeight: 950, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.04em' }}>{selectedFaculty.name}</h3>
+                                        <p style={{ color: 'var(--text-dim)', margin: '0.25rem 0 0.75rem 0', fontSize: '1.15rem', fontWeight: 600 }}>{selectedFaculty.email}</p>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '1rem' }}>
+                                        <div className="mini-stat">
+                                            <div className="mini-val">{selectedFaculty.stats?.total || 0}</div>
+                                            <div className="mini-lab">Tasks</div>
+                                        </div>
+                                        <div className="mini-stat" style={{ borderColor: 'var(--primary-light)' }}>
+                                            <div className="mini-val" style={{ color: 'var(--primary)' }}>
+                                                {selectedFaculty.stats?.total > 0 ? Math.round((selectedFaculty.stats.completed / selectedFaculty.stats.total) * 100) : 0}%
+                                            </div>
+                                            <div className="mini-lab">Success</div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <button className="btn-close" onClick={() => setSelectedFaculty(null)} style={{ padding: '0.8rem 1.75rem', borderRadius: '14px' }}>Return to Fleet</button>
+                        <button className="btn-close" onClick={() => setSelectedFaculty(null)} style={{ padding: '0.8rem 1.75rem', borderRadius: '14px', border: '1px solid var(--border-color)', background: 'var(--bg-card)', fontWeight: 700 }}>Return to Fleet</button>
                     </div>
 
                     {tasksLoading ? (
@@ -365,6 +484,62 @@ export default function AdminDashboard({ setActiveTab }) {
                             ))}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Department Detail Modal */}
+            {selectedDept && (
+                <div className="modal-overlay" onClick={() => setSelectedDept(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div>
+                                <h3 style={{ fontSize: '2.2rem', fontWeight: 950, color: 'var(--text-main)', margin: 0, letterSpacing: '-0.04em' }}>{selectedDept.name}</h3>
+                                <p style={{ color: 'var(--text-dim)', margin: '0.2rem 0 0', fontWeight: 700, fontSize: '1.1rem' }}>Aggregate Intelligence Summary</p>
+                            </div>
+                            <button className="btn-close" onClick={() => setSelectedDept(null)} style={{ fontSize: '1.5rem', background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}>&times;</button>
+                        </div>
+
+                        <div className="stat-grid">
+                            <div className="stat-box completed">
+                                <span className="stat-label">Resolved</span>
+                                <span className="stat-value">{selectedDept.stats.completed}</span>
+                            </div>
+                            <div className="stat-box progress">
+                                <span className="stat-label">In-Flight</span>
+                                <span className="stat-value">{selectedDept.stats.inProgress}</span>
+                            </div>
+                            <div className="stat-box pending">
+                                <span className="stat-label">Pending</span>
+                                <span className="stat-value">{selectedDept.stats.pending}</span>
+                            </div>
+                            <div className="stat-box overdue">
+                                <span className="stat-label">Critical / Delay</span>
+                                <span className="stat-value">{selectedDept.stats.overdue}</span>
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: '2rem' }}>
+                            <h4 style={{ fontSize: '0.8rem', fontWeight: 900, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.1em' }}>Assigned Personnel ({selectedDept.faculty.length})</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                {selectedDept.faculty.map(fac => (
+                                    <div key={fac.id} className="search-item" style={{ padding: '0.75rem 1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={() => { setSelectedDept(null); handleSelectFaculty(fac); }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            <img src={fac.photoUrl || getAvatarUrl(fac.email)} style={{ width: 32, height: 32, borderRadius: '8px' }} />
+                                            <div>
+                                                <div style={{ fontWeight: 800, color: 'var(--text-main)' }}>{fac.name}</div>
+                                                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>{fac.email}</div>
+                                            </div>
+                                        </div>
+                                        <div style={{ fontWeight: 950, color: 'var(--primary)' }}>{fac.stats.total} Tasks</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: '2.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+                            <button className="btn-vibrant" onClick={() => setSelectedDept(null)}>Dismiss Overlay</button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
