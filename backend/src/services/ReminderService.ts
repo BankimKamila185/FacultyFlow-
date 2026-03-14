@@ -30,21 +30,43 @@ export class ReminderService {
             const userTaskGroups: Record<string, { id: string; name: string; tasks: string[] }> = {};
 
             for (const task of pendingTasks) {
-                const user = await FirestoreService.getDoc('users', task.assignedToId);
-                if (!user || !user.email) continue;
+                const recipients: { email: string; name: string }[] = [];
 
-                if (!userTaskGroups[user.email]) {
-                    userTaskGroups[user.email] = {
-                        id: user.id,
-                        name: user.name || 'Faculty Member',
-                        tasks: [],
-                    };
+                // 2a. Add primary assignee
+                const primaryUser = await FirestoreService.getDoc('users', task.assignedToId);
+                if (primaryUser && primaryUser.email) {
+                    recipients.push({ email: primaryUser.email, name: primaryUser.name || 'Faculty Member' });
                 }
-                
-                const deadline = task.deadline?.toDate ? task.deadline.toDate() : (task.deadline ? new Date(task.deadline) : null);
-                userTaskGroups[user.email].tasks.push(
-                    `- ${task.title}${deadline ? ` (Due: ${deadline.toLocaleDateString()})` : ''}`
-                );
+
+                // 2b. Add department members if it's a team task
+                if (task.department) {
+                    const deptMembers = await FirestoreService.query('users', [
+                        { field: 'department', operator: '==', value: task.department }
+                    ]);
+                    for (const member of deptMembers) {
+                        if (member.email && !recipients.some(r => r.email === member.email)) {
+                            recipients.push({ email: member.email, name: member.name || 'Dept Member' });
+                        }
+                    }
+                }
+
+                // 2c. Group tasks for each recipient
+                for (const recipient of recipients) {
+                    if (!userTaskGroups[recipient.email]) {
+                        userTaskGroups[recipient.email] = {
+                            id: '', // Not strictly needed for reminder email
+                            name: recipient.name,
+                            tasks: [],
+                        };
+                    }
+                    
+                    const deadline = task.deadline?.toDate ? task.deadline.toDate() : (task.deadline ? new Date(task.deadline) : null);
+                    const taskDesc = `- ${task.title}${deadline ? ` (Due: ${deadline.toLocaleDateString()})` : ''}${task.department ? ` [Team: ${task.department}]` : ''}`;
+                    
+                    if (!userTaskGroups[recipient.email].tasks.includes(taskDesc)) {
+                        userTaskGroups[recipient.email].tasks.push(taskDesc);
+                    }
+                }
             }
 
             // 3. Send summary emails

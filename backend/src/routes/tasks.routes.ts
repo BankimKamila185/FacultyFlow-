@@ -1,33 +1,14 @@
 import { Router } from 'express';
 import { getMyTasks, getAllTasks, updateTaskStatus, askReason, batchAskReason } from '../controllers/tasks.controller';
 import { authenticate } from '../middleware/auth';
+import { authorize } from '../middleware/rbac';
 
 const router = Router();
 
-/**
- * GET /api/tasks/my  — personalized tasks for logged-in faculty
- * (filtered by their email across all Responsible Person columns)
- */
-router.get('/my', authenticate, getMyTasks);
-
-/**
- * GET /api/tasks — all tasks (admin / dashboard view)
- */
-router.get('/', authenticate, getAllTasks);
-
-/**
- * PATCH /api/tasks/:id/status — update task status
- */
-router.patch('/:id/status', authenticate, updateTaskStatus);
-
-/**
- * POST /api/tasks/nudge-all — ask reason for ALL delayed tasks
- */
-router.post('/nudge-all', authenticate, batchAskReason);
-
-/**
- * POST /api/tasks/:id/ask-reason — ask reason for a delayed task
- */
-router.post('/:id/ask-reason', authenticate, askReason);
+router.get('/my',           authenticate, authorize('task:read:own'), getMyTasks);
+router.get('/',             authenticate, authorize('task:read:own', 'task:read:department', 'task:read:all'), getAllTasks);
+router.patch('/:id/status', authenticate, authorize('task:update:own', 'task:update:any'), updateTaskStatus);
+router.post('/nudge-all',   authenticate, authorize('task:nudge'), batchAskReason);
+router.post('/:id/ask-reason', authenticate, authorize('task:nudge'), askReason);
 
 export default router;

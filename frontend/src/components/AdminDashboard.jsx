@@ -3,15 +3,8 @@ import { API_URL } from '../config';
 import { fetchWithAuth, getAvatarUrl } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
-const DEPARTMENTS = [
-    'Academic Administration', 'HOD', 'BU Head', 'ERP Team', 'Academics',
-    'CNV Team', 'Registrar General', 'Coordinator', 'Faculty',
-    'Academic Coordinator', 'Operations', 'Examination Department',
-    'Registrar Office', 'ERP Coordinator', 'Admin',
-    'Audit & Verification Team', 'Joint Registrar'
-];
-
 export default function AdminDashboard({ setActiveTab }) {
+    const [departments, setDepartments] = useState([]);
     const [facultyStats, setFacultyStats] = useState([]);
     const [globalMetrics, setGlobalMetrics] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -21,6 +14,10 @@ export default function AdminDashboard({ setActiveTab }) {
     const [selectedFaculty, setSelectedFaculty] = useState(null);
     const [facultyTasks, setFacultyTasks] = useState([]);
     const [selectedDept, setSelectedDept] = useState(null);
+    const [previewRecords, setPreviewRecords] = useState(null);
+    const [showPreviewModal, setShowPreviewModal] = useState(false);
+    const [activeSemester, setActiveSemester] = useState('even'); // 'even' or 'odd'
+    const [selectedDeptFilter, setSelectedDeptFilter] = useState('All');
     const { currentUser } = useAuth();
 
     useEffect(() => {
@@ -43,6 +40,17 @@ export default function AdminDashboard({ setActiveTab }) {
             }
             if (metricsData.success) {
                 setGlobalMetrics(metricsData.data);
+            }
+
+            // Fetch departments
+            const deptRes = await fetchWithAuth(`${API_URL}/departments`);
+            const deptData = await deptRes.json();
+            if (deptData.success) {
+                setDepartments(deptData.data.map(d => d.name));
+            } else {
+                // Fallback to existing unique departments from stats if API fails
+                const uniqueDepts = Array.from(new Set(usersData.data.map(u => u.department).filter(Boolean)));
+                setDepartments(uniqueDepts);
             }
         } catch (err) {
             console.error('Error fetching admin data:', err);
@@ -86,14 +94,25 @@ export default function AdminDashboard({ setActiveTab }) {
         }
     };
 
-    const handleSync = async () => {
+    const handleSync = async (isCommit = false) => {
         setIsSyncing(true);
         try {
-            const res = await fetchWithAuth(`${API_URL}/sync`, { method: 'POST' });
+            const res = await fetchWithAuth(`${API_URL}/sync`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ preview: !isCommit })
+            });
             const data = await res.json();
             if (data.success) {
-                alert('Database synchronization complete!');
-                fetchData();
+                if (!isCommit) {
+                    setPreviewRecords(data.data);
+                    setShowPreviewModal(true);
+                } else {
+                    alert('Database synchronization complete!');
+                    setPreviewRecords(null);
+                    setShowPreviewModal(false);
+                    fetchData();
+                }
             } else {
                 alert('Sync failed: ' + data.message);
             }
@@ -125,7 +144,9 @@ export default function AdminDashboard({ setActiveTab }) {
         window.open(url, '_blank');
     };
 
-    const departmentData = DEPARTMENTS.map(dept => {
+    const departmentData = departments
+        .filter(dept => selectedDeptFilter === 'All' || dept === selectedDeptFilter)
+        .map(dept => {
         const matchingFaculty = facultyStats.filter(f => 
             (f.department?.trim().toLowerCase() === dept.toLowerCase()) ||
             (dept === 'Faculty' && (!f.department || f.department.trim() === ''))
@@ -149,15 +170,18 @@ export default function AdminDashboard({ setActiveTab }) {
         };
     });
 
-    const sortedByCompletion = [...facultyStats].sort((a, b) => {
+    const sortedByCompletion = [...facultyStats]
+        .filter(f => selectedDeptFilter === 'All' || f.department === selectedDeptFilter)
+        .sort((a, b) => {
         const rateA = a.stats?.total > 0 ? (a.stats.completed / a.stats.total) : 0;
         const rateB = b.stats?.total > 0 ? (b.stats.completed / b.stats.total) : 0;
         return rateB - rateA;
     });
 
     const filteredFaculty = facultyStats.filter(fac => 
-        fac.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        fac.email?.toLowerCase().includes(searchQuery.toLowerCase())
+        (selectedDeptFilter === 'All' || fac.department === selectedDeptFilter) &&
+        (fac.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         fac.email?.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
     if (loading) {
@@ -247,6 +271,19 @@ export default function AdminDashboard({ setActiveTab }) {
                 .stat-box.progress { border-left: 4px solid var(--primary); }
                 .stat-label { font-size: 0.75rem; font-weight: 800; color: var(--text-dim); text-transform: uppercase; }
                 .stat-value { font-size: 1.75rem; font-weight: 950; color: var(--text-main); }
+
+                /* Filter Bar Styles */
+                .filter-bar { display: flex; align-items: center; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 0.4rem; gap: 0.5rem; margin-bottom: 2rem; width: fit-content; box-shadow: var(--shadow-sm); }
+                .filter-item { padding: 0.6rem 1.2rem; border-radius: 12px; font-weight: 750; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; color: var(--text-dim); border: none; background: transparent; display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
+                .filter-item:hover { color: var(--text-main); background: var(--bg-dark); }
+                .filter-item.active { background: #E0E7FF; color: #4F46E5; }
+                .body.theme-dark .filter-item.active { background: #312E81; color: #C7D2FE; }
+                .filter-sep { width: 1px; height: 20px; background: var(--border-color); margin: 0 0.25rem; }
+                
+                .dept-dropdown { position: relative; }
+                .dept-select-trigger { border: none; background: transparent; color: var(--text-dim); font-weight: 750; display: flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.2rem; cursor: pointer; font-family: inherit; }
+                .dept-select-trigger:hover { color: var(--text-main); }
+                .dept-select-trigger.active { color: var(--primary); }
             `}</style>
 
             <div className="admin-header">
@@ -271,39 +308,76 @@ export default function AdminDashboard({ setActiveTab }) {
                 </div>
             </div>
 
-            {!selectedFaculty && (
-                <div className="dashboard-section">
-                    <div className="section-header">
-                        <h3 className="section-title">Departmental Intelligence</h3>
-                    </div>
-                    <div className="dept-grid">
-                        {departmentData.map(dept => (
-                            <div key={dept.name} className="dept-card" onClick={() => setSelectedDept(dept)}>
-                                <div>
-                                    <div className="dept-name">{dept.name}</div>
-                                    <div className="dept-meta">{dept.facultyCount} Active Members</div>
-                                </div>
-                                <div className="dept-progress-info">
-                                    <div>
-                                        <div className="metric-lab" style={{ fontSize: '0.65rem' }}>Process Status</div>
-                                        <div className="dept-rate">{dept.completionRate}%</div>
-                                    </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div className="metric-lab" style={{ fontSize: '0.65rem' }}>Workload</div>
-                                        <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-main)' }}>{dept.stats.total} Tasks</div>
-                                    </div>
-                                </div>
-                                <div className="progress-container" style={{ height: '6px' }}>
-                                    <div className="progress-bar" style={{ width: `${dept.completionRate}%` }} />
-                                </div>
-                            </div>
+            <div className="filter-bar">
+                <button 
+                    className={`filter-item ${activeSemester === 'even' ? 'active' : ''}`}
+                    onClick={() => setActiveSemester('even')}
+                >
+                    Semester 2, 4, 6
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <button 
+                    className={`filter-item ${activeSemester === 'odd' ? 'active' : ''}`}
+                    onClick={() => setActiveSemester('odd')}
+                >
+                    Semester 1, 3, 5, 7
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div className="filter-sep" />
+                <div className="dept-dropdown">
+                    <select 
+                        className={`dept-select-trigger ${selectedDeptFilter !== 'All' ? 'active' : ''}`}
+                        value={selectedDeptFilter}
+                        onChange={(e) => setSelectedDeptFilter(e.target.value)}
+                        style={{ outline: 'none' }}
+                    >
+                        <option value="All">Department list</option>
+                        {departments.map(dept => (
+                            <option key={dept} value={dept}>{dept}</option>
                         ))}
-                    </div>
+                    </select>
                 </div>
-            )}
+            </div>
 
             {!selectedFaculty ? (
-                <>
+                activeSemester === 'odd' ? (
+                    <div style={{ padding: '6rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '32px', border: '1px dashed var(--border-color)', margin: '2rem 1.5rem' }}>
+                        <div style={{ fontSize: '4rem', marginBottom: '1.5rem' }}>📅</div>
+                        <h3 style={{ fontSize: '1.8rem', fontWeight: 950, color: 'var(--text-main)', marginBottom: '0.5rem' }}>Odd Semester Data (1, 3, 5, 7)</h3>
+                        <p style={{ color: 'var(--text-dim)', fontSize: '1.1rem', maxWidth: '500px', margin: '0 auto' }}>
+                            Data for the odd semester has not been synchronized yet. Please switch back to Semester 2, 4, 6 or sync from the source spreadsheet.
+                        </p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="dashboard-section">
+                            <div className="section-header">
+                                <h3 className="section-title">Departmental Intelligence</h3>
+                            </div>
+                            <div className="dept-grid">
+                                {departmentData.map(dept => (
+                                    <div key={dept.name} className="dept-card" onClick={() => setSelectedDept(dept)}>
+                                        <div>
+                                            <div className="dept-name">{dept.name}</div>
+                                            <div className="dept-meta">{dept.facultyCount} Active Members</div>
+                                        </div>
+                                        <div className="dept-progress-info">
+                                            <div>
+                                                <div className="metric-lab" style={{ fontSize: '0.65rem' }}>Process Status</div>
+                                                <div className="dept-rate">{dept.completionRate}%</div>
+                                            </div>
+                                            <div style={{ textAlign: 'right' }}>
+                                                <div className="metric-lab" style={{ fontSize: '0.65rem' }}>Workload</div>
+                                                <div style={{ fontSize: '1rem', fontWeight: 900, color: 'var(--text-main)' }}>{dept.stats.total} Tasks</div>
+                                            </div>
+                                        </div>
+                                        <div className="progress-container" style={{ height: '6px' }}>
+                                            <div className="progress-bar" style={{ width: `${dept.completionRate}%` }} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     <div className="dashboard-section">
                         <div className="section-header">
                             <h3 className="section-title">Performance Leaderboard</h3>
@@ -413,7 +487,8 @@ export default function AdminDashboard({ setActiveTab }) {
                             </div>
                         )}
                     </div>
-                </>
+                    </>
+                )
             ) : (
                 <div className="tasks-view">
                     <div className="tasks-header">
@@ -538,6 +613,75 @@ export default function AdminDashboard({ setActiveTab }) {
 
                         <div style={{ marginTop: '2.5rem', display: 'flex', justifyContent: 'flex-end' }}>
                             <button className="btn-vibrant" onClick={() => setSelectedDept(null)}>Dismiss Overlay</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Preview Sync Modal */}
+            {showPreviewModal && (
+                <div className="modal-overlay" onClick={() => setShowPreviewModal(false)}>
+                    <div className="modal-content" style={{ maxWidth: '900px' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                            <div>
+                                <h3 style={{ fontSize: '1.8rem', fontWeight: 950, color: 'var(--text-main)', margin: 0 }}>Sync Preview</h3>
+                                <p style={{ color: 'var(--text-dim)', fontWeight: 600 }}>Reviewing {previewRecords?.length} tasks from spreadsheet</p>
+                            </div>
+                            <button className="btn-close" onClick={() => setShowPreviewModal(false)} style={{ fontSize: '1.5rem', background: 'transparent', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}>&times;</button>
+                        </div>
+
+                        <div style={{ maxHeight: '50vh', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '0.5rem' }}>
+                            <table className="leader-table">
+                                <thead>
+                                    <tr>
+                                        <th>Sprint / Event</th>
+                                        <th>Task Title</th>
+                                        <th>Responsible</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {previewRecords?.map((rec, idx) => (
+                                        <tr key={idx}>
+                                            <td style={{ fontSize: '0.8rem' }}>
+                                                <div style={{ fontWeight: 800 }}>{rec.sprintName}</div>
+                                                <div style={{ color: 'var(--text-dim)' }}>{rec.subEvent}</div>
+                                            </td>
+                                            <td style={{ fontWeight: 600 }}>{rec.title}</td>
+                                            <td style={{ fontSize: '0.85rem' }}>
+                                                <div>{rec.primaryEmail}</div>
+                                                <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem' }}>{rec.responsibleTeam}</div>
+                                            </td>
+                                            <td>
+                                                <span className={`t-status ${rec.status}`} style={{
+                                                    background: rec.status === 'COMPLETED' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                                                    color: rec.status === 'COMPLETED' ? '#10B981' : '#F59E0B',
+                                                    padding: '0.2rem 0.5rem',
+                                                    borderRadius: '6px',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 800
+                                                }}>
+                                                    {rec.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                            <button className="btn-secondary" onClick={() => setShowPreviewModal(false)}>Cancel</button>
+                            <button 
+                                className={`btn-sync ${isSyncing ? 'loading' : ''}`} 
+                                onClick={() => handleSync(true)}
+                                disabled={isSyncing}
+                            >
+                                {isSyncing ? 'Committing...' : 'Commit to Firestore'}
+                            </button>
+                        </div>
+                        
+                        <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-dim)', textAlign: 'right' }}>
+                             ⚠️ Committing will consume Firestore write quota.
                         </div>
                     </div>
                 </div>

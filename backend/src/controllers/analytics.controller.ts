@@ -24,10 +24,8 @@ export class AnalyticsController {
             // ALWAYS filter for personalized metrics based on current user or requested view
             const filter = { userId: filterUserId, email: filterEmail };
             
-            console.log(`[Analytics] Fetching for User: ${user?.email} (${user?.id})`);
+            console.log(`[Analytics] Fetching live metrics for: ${user?.email}`);
             const metrics = await AnalyticsService.getDashboardMetrics(filter);
-            console.log(`[Analytics] Result:`, JSON.stringify(metrics, null, 2));
-            
             res.status(200).json({ success: true, data: metrics });
         } catch (error) {
             next(error);

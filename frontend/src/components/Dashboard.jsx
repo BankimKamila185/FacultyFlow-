@@ -11,6 +11,9 @@ export default function Dashboard({ setActiveTab }) {
     const [metrics, setMetrics] = useState(null);
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+    const [modalTitle, setModalTitle] = useState('');
+    const [filteredTasks, setFilteredTasks] = useState([]);
 
     const fetchData = async (showSyncing = false) => {
         if (showSyncing) setSyncing(true);
@@ -58,16 +61,16 @@ export default function Dashboard({ setActiveTab }) {
 
     useEffect(() => {
         fetchData(true); // Initial sync + fetch
-        const interval = setInterval(() => fetchData(false), 30000);
+        const interval = setInterval(() => fetchData(false), 300000);
         return () => clearInterval(interval);
     }, []);
 
-    // Accurate metrics from dedicated endpoint
     const stats = {
         total: metrics?.tasks?.total || 0,
-        globalTotal: metrics?.tasks?.globalTotal || 0,
-        active: (metrics?.tasks?.inProgress || 0) + (metrics?.tasks?.inReview || 0),
-        completed: metrics?.tasks?.completed || 0
+        pending: metrics?.tasks?.pending || 0,
+        completed: metrics?.tasks?.completed || 0,
+        delayed: metrics?.tasks?.delayed || 0,
+        inProgress: metrics?.tasks?.inProgress || 0
     };
 
     const unreadInboxCount = inbox.filter(m => !m.isRead).length;
@@ -102,49 +105,80 @@ export default function Dashboard({ setActiveTab }) {
             </div>
 
             {/* ─── Overview Stats Row ────────────────────────────────────────── */}
-            <div className="over-stats" style={{ marginBottom: '1.5rem', gap: '1rem' }}>
-                <div className="over-card">
-                    <div>
-                        <div className="over-label" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            Project Total Tasks
-                            <span style={{ fontSize: '0.6rem', color: '#10B981', background: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>LIVE</span>
+            <div className="over-stats" style={{ 
+                marginBottom: '2rem', 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(5, 1fr)', 
+                gap: '0.75rem',
+                overflowX: 'auto',
+                paddingBottom: '0.5rem'
+            }}>
+                {[
+                    { label: 'Total Task', key: 'TOTAL', value: stats.total, color: 'var(--primary)', icon: <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>, badge: 'LIVE' },
+                    { label: 'Pending', key: 'PENDING', value: stats.pending, color: '#F59E0B', icon: <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></> },
+                    { label: 'In Progress', key: 'IN_PROGRESS', value: stats.inProgress, color: '#3B82F6', icon: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/> },
+                    { label: 'Completed', key: 'COMPLETED', value: stats.completed, color: '#10B981', icon: <polyline points="20 6 9 17 4 12"/> },
+                    { label: 'Overdue', key: 'OVERDUE', value: stats.delayed, color: '#EF4444', icon: <><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></> }
+                ].map((item, idx) => (
+                    <div key={idx} className="over-card" 
+                        onClick={() => {
+                            setModalTitle(`${item.label} Tasks`);
+                            let filtered = [];
+                            if (item.key === 'TOTAL') filtered = tasks;
+                            else filtered = tasks.filter(t => t.status === item.key);
+                            setFilteredTasks(filtered);
+                            setShowModal(true);
+                        }}
+                        style={{ 
+                            padding: '1rem 1.25rem', 
+                            borderRadius: '20px', 
+                            flexDirection: 'column', 
+                            alignItems: 'flex-start',
+                            gap: '0.5rem',
+                            background: 'var(--bg-card)',
+                            border: '1px solid var(--border-color)',
+                            boxShadow: 'var(--shadow-sm)',
+                            minWidth: '160px',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-5px)';
+                            e.currentTarget.style.borderColor = item.color;
+                            e.currentTarget.style.boxShadow = `0 10px 20px ${item.color}15`;
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.borderColor = 'var(--border-color)';
+                            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                            <div style={{ 
+                                background: `${item.color}15`, 
+                                color: item.color, 
+                                padding: '0.5rem', 
+                                borderRadius: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    {item.icon}
+                                </svg>
+                            </div>
+                            {item.badge && (
+                                <span style={{ fontSize: '0.6rem', fontWeight: 800, color: item.color, background: `${item.color}15`, padding: '2px 8px', borderRadius: '6px' }}>
+                                    {item.badge}
+                                </span>
+                            )}
                         </div>
-                        <div className="over-value">{stats.globalTotal}</div>
-                    </div>
-                    <div className="over-icon" style={{ background: 'var(--bg-dark)', color: 'var(--primary)', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                    </div>
-                </div>
-                <div className="over-card">
-                    <div>
-                        <div className="over-label" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            My Assigned Tasks
-                            <span style={{ fontSize: '0.6rem', color: 'var(--primary)', background: 'var(--primary-glow)', padding: '2px 6px', borderRadius: '4px' }}>PERSONAL</span>
+                        <div>
+                            <div className="over-label" style={{ fontSize: '0.75rem', opacity: 0.8, marginBottom: '2px' }}>{item.label}</div>
+                            <div className="over-value" style={{ fontSize: '1.5rem', lineHeight: 1 }}>{item.value}</div>
                         </div>
-                        <div className="over-value">{stats.total}</div>
                     </div>
-                    <div className="over-icon" style={{ background: 'var(--bg-dark)', color: 'var(--primary)', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    </div>
-                </div>
-                <div className="over-card">
-                    <div>
-                        <div className="over-label">Collaborative Progress</div>
-                        <div className="over-value">{stats.active}</div>
-                    </div>
-                    <div className="over-icon" style={{ background: 'var(--bg-dark)', color: '#D97706', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    </div>
-                </div>
-                <div className="over-card">
-                    <div>
-                        <div className="over-label">Success Rate</div>
-                        <div className="over-value">{stats.completed}</div>
-                    </div>
-                    <div className="over-icon" style={{ background: 'var(--bg-dark)', color: '#10B981', border: '1px solid var(--border-color)', padding: '0.4rem', borderRadius: '10px' }}>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    </div>
-                </div>
+                ))}
             </div>
 
             {/* ─── Main Content Grid ─────────────────────────────────────────── */}
@@ -377,9 +411,75 @@ export default function Dashboard({ setActiveTab }) {
                 </div>
             </div>
 
+            {/* ─── Task List Modal ─────────────────────────────────────────── */}
+            {showModal && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '2rem'
+                }} onClick={() => setShowModal(false)}>
+                    <div style={{
+                        background: 'var(--bg-card)', width: '100%', maxWidth: '800px', borderRadius: '28px',
+                        border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-lg)', overflow: 'hidden',
+                        display: 'flex', flexDirection: 'column', maxHeight: '85vh', animation: 'modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)' }}>
+                            <h2 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>{modalTitle}</h2>
+                            <button onClick={() => setShowModal(false)} style={{
+                                background: 'var(--bg-dark)', border: 'none', color: 'var(--text-muted)', width: '32px', height: '32px',
+                                borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
+                            }} onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+                        <div style={{ overflowY: 'auto', padding: '1.5rem 2rem' }}>
+                            {filteredTasks.length === 0 ? (
+                                <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-dim)', fontWeight: 600 }}>No tasks found in this category.</div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    {filteredTasks.map(task => (
+                                        <div key={task.id} style={{
+                                            padding: '1.25rem', borderRadius: '18px', background: 'var(--bg-dark)', border: '1px solid var(--border-color)',
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                        }}>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '0.95rem', marginBottom: '4px' }}>{task.title}</div>
+                                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 700 }}>
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                                        {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No date'}
+                                                    </div>
+                                                    <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 700 }}>•</div>
+                                                    <div style={{ color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 800 }}>{task.assignedTo?.name || 'Unassigned'}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{
+                                                padding: '6px 14px', borderRadius: '10px', background: task.status === 'COMPLETED' ? '#10B98120' : '#F59E0B20',
+                                                color: task.status === 'COMPLETED' ? '#10B981' : '#F59E0B', fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase'
+                                            }}>
+                                                {task.status}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ padding: '1.25rem 2rem', borderTop: '1px solid var(--border-color)', background: 'var(--bg-surface)', textAlign: 'right' }}>
+                            <button onClick={() => setShowModal(false)} style={{
+                                padding: '0.6rem 1.5rem', background: 'var(--primary)', color: 'white', border: 'none',
+                                borderRadius: '12px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px var(--primary-glow)'
+                            }}>Dismiss</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <style>{`
                 @keyframes spin {
                     to { transform: rotate(360deg); }
+                }
+                @keyframes modalSlideUp {
+                    from { opacity: 0; transform: translateY(40px) scale(0.95); }
+                    to { opacity: 1; transform: translateY(0) scale(1); }
                 }
             `}</style>
         </div>

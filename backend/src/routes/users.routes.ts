@@ -1,16 +1,14 @@
 import { Router } from 'express';
-import { getFacultyProfile, updateFacultyProfile, getAllFacultyStats } from '../controllers/users.controller';
+import { getFacultyProfile, updateFacultyProfile, getAllFacultyStats, updateUserRole, getMyPermissions } from '../controllers/users.controller';
 import { authenticate } from '../middleware/auth';
+import { authorize } from '../middleware/rbac';
 
 const router = Router();
 
-// Public profile view by email — for debugging/admin
-router.get('/profile/:email', getFacultyProfile);
-
-// Authenticated route to update current user's profile
-router.put('/profile', authenticate, updateFacultyProfile);
-
-// Authenticated route to get all faculty stats (Admin only)
-router.get('/', authenticate, getAllFacultyStats);
+router.get('/me/permissions',  authenticate, getMyPermissions);
+router.get('/profile/:email',  authenticate, authorize('user:read:own', 'user:read:department', 'user:read:all'), getFacultyProfile);
+router.put('/profile',         authenticate, authorize('user:update:own'), updateFacultyProfile);
+router.patch('/:id/role',      authenticate, authorize('user:role:update'), updateUserRole);
+router.get('/',                authenticate, authorize('user:read:all', 'user:read:department'), getAllFacultyStats);
 
 export default router;

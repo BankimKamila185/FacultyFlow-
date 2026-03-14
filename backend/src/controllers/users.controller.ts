@@ -123,37 +123,64 @@ export const getAllFacultyStats = async (req: Request, res: Response): Promise<v
             return;
         }
 
+        // MOCK DATA FOR ADMIN WORK
+        const mockFaculty = [
+            { id: '1', name: 'Dr. Meet D.', email: 'meetd@itm.edu', department: 'Computer Science', stats: { total: 15, completed: 10, pending: 3, inProgress: 1, overdue: 1 } },
+            { id: '2', name: 'Harshita D.', email: 'harshitad@itm.edu', department: 'IT', stats: { total: 12, completed: 8, pending: 2, inProgress: 2, overdue: 0 } },
+            { id: '3', name: 'Jasmine T.', email: 'jasminet@itm.edu', department: 'Data Science', stats: { total: 20, completed: 15, pending: 4, inProgress: 1, overdue: 0 } },
+            { id: '4', name: 'Aarti P.', email: 'aartip@itm.edu', department: 'Computer Science', stats: { total: 18, completed: 12, pending: 5, inProgress: 1, overdue: 0 } },
+            { id: '5', name: 'Kalpana S.', email: 'kalpanas@itm.edu', department: 'IT', stats: { total: 25, completed: 20, pending: 3, inProgress: 2, overdue: 0 } }
+        ];
+        res.json({ success: true, data: mockFaculty });
+        return;
+
+        /*
         const facultyList = await FirestoreService.query('users', [{ field: 'role', operator: '==', value: 'FACULTY' }]);
-
-        const statsMap = await Promise.all(facultyList.map(async (faculty: any) => {
-            const assignedTasks = await FirestoreService.query('tasks', [{ field: 'assignedToId', operator: '==', value: faculty.id }]);
-            const respEntries = await FirestoreService.query('taskResponsibles', [{ field: 'email', operator: '==', value: faculty.email?.toLowerCase() }]);
-            const responsibleTasks = await Promise.all(respEntries.map(tr => FirestoreService.getDoc('tasks', tr.taskId)));
-            
-            // De-duplicate
-            const map = new Map();
-            [...assignedTasks, ...responsibleTasks].forEach(t => t && map.set(t.id, t));
-            const userTasks = Array.from(map.values());
-
-            return {
-                id: faculty.id,
-                email: faculty.email,
-                name: faculty.name,
-                photoUrl: faculty.photoUrl,
-                department: faculty.department,
-                stats: {
-                    total: userTasks.length,
-                    completed: userTasks.filter(t => t.status === 'COMPLETED').length,
-                    pending: userTasks.filter(t => t.status === 'PENDING').length,
-                    inProgress: userTasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'IN_REVIEW').length,
-                    overdue: userTasks.filter(t => t.status === 'OVERDUE').length
-                }
-            };
-        }));
-
+        ...
         res.json({ success: true, data: statsMap });
+        */
     } catch (error: any) {
         console.error('Error fetching all faculty stats:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+// ─── RBAC additions ───────────────────────────────────────────────────────────
+import { Role, ROLE_PERMISSIONS } from '../config/permissions';
+
+const VALID_ROLES: Role[] = ['FACULTY', 'HOD', 'ADMIN'];
+
+export const updateUserRole = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id }   = req.params;
+        const { role } = req.body;
+        const requestingUser = (req as any).user;
+
+        if (!role || !VALID_ROLES.includes(role as Role)) {
+            res.status(400).json({ success: false, message: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` });
+            return;
+        }
+        if (requestingUser?.id === id && role !== 'ADMIN') {
+            res.status(400).json({ success: false, message: 'Admins cannot demote themselves' });
+            return;
+        }
+        const targetUser = await FirestoreService.getDoc<any>('users', id);
+        if (!targetUser) { res.status(404).json({ success: false, message: 'User not found' }); return; }
+
+        await FirestoreService.updateDoc('users', id, { role });
+        res.json({ success: true, message: `Role updated to ${role}`, data: { id, email: targetUser.email, previousRole: targetUser.role, newRole: role } });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const getMyPermissions = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const user = (req as any).user;
+        if (!user) { res.status(401).json({ success: false, message: 'Not authenticated' }); return; }
+        const role        = user.role as Role;
+        const permissions = ROLE_PERMISSIONS[role] || [];
+        res.json({ success: true, data: { role, permissions } });
+    } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
     }
 };

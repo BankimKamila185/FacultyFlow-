@@ -13,8 +13,10 @@ const envSchema = z.object({
     GOOGLE_CLIENT_SECRET: z.string().optional(),
     GOOGLE_REDIRECT_URL: z.string().optional(),
     FIREBASE_PROJECT_ID: z.string().optional(),
+    FIREBASE_DATABASE_ID: z.string().optional(),
     FIREBASE_CLIENT_EMAIL: z.string().optional(),
     FIREBASE_PRIVATE_KEY: z.string().optional(),
+    ALLOWED_ORIGINS: z.string().default('http://localhost:5173'),
 });
 
 const _env = envSchema.safeParse(process.env);

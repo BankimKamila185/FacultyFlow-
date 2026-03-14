@@ -1,12 +1,11 @@
 import { firebaseAdmin } from '../integrations/firebase';
 import { firestore } from 'firebase-admin';
+import { config } from '../config';
+import { getFirestore } from 'firebase-admin/firestore';
 
 export class FirestoreService {
     private static get db() {
-        if (!firebaseAdmin.apps.length) {
-            throw new Error('Firebase Admin SDK not initialized. Please check your environment variables (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY).');
-        }
-        return firebaseAdmin.firestore();
+        return config.FIREBASE_DATABASE_ID ? getFirestore(config.FIREBASE_DATABASE_ID) : firebaseAdmin.firestore();
     }
 
     static async getCollection<T = any>(collectionName: string): Promise<T[]> {
@@ -69,11 +68,16 @@ export class FirestoreService {
     }
 
     static async count(collectionName: string, constraints: { field: string, operator: firestore.WhereFilterOp, value: any }[] = []): Promise<number> {
-        let query: firestore.Query = this.db.collection(collectionName);
-        for (const c of constraints) {
-            query = query.where(c.field, c.operator, c.value);
+        try {
+            let query: firestore.Query = this.db.collection(collectionName);
+            for (const c of constraints) {
+                query = query.where(c.field, c.operator, c.value);
+            }
+            const snapshot = await query.count().get();
+            return snapshot.data().count;
+        } catch (error) {
+            console.warn(`[FirestoreService] Count failed for ${collectionName}, returning 0.`, error);
+            return 0;
         }
-        const snapshot = await query.count().get();
-        return snapshot.data().count;
     }
 }

@@ -16,6 +16,7 @@ export interface Task {
     createdById: string;
     remarks?: string;
     escalationLevel?: number;
+    department?: string;
     createdAt?: any;
     updatedAt?: any;
     assignedTo?: any;

@@ -197,7 +197,7 @@ function LoginPage({ onLogin }) {
 
 export default function App() {
   const { currentUser, devUser, backendUser, backendToken, setDevUser, setBackendToken, loginWithGoogle, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('Dashboard');
+  const [activeTab, setActiveTab] = useState('Admin Panel');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [theme, setTheme] = useState('light');
   const isDesktop = !!window.require; // Detection for Electron

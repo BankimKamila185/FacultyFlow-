@@ -30,8 +30,8 @@ export async function createApp() {
 
     app.use(cors({
         origin: (origin, callback) => {
-            const allowedOrigins = process.env.ALLOWED_ORIGINS 
-                ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) 
+            const allowedOrigins = config.ALLOWED_ORIGINS 
+                ? config.ALLOWED_ORIGINS.split(',').map(o => o.trim()) 
                 : [];
             
             if (process.env.NODE_ENV !== 'production' && !origin) return callback(null, true);
