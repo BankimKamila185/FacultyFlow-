@@ -116,9 +116,10 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
             const startDateStr = rowData['Start Date'] || rowData['Start Date (MM/DD/YYYY)'];
             const endDateStr = rowData['End date'] || rowData['End date (MM/DD/YYYY)'];
             const statusStr = rowData['status'] || rowData['Status'];
+            const taskCompletionDateStr = rowData['Task Completion Date'];
             const responsibleTeam = rowData['To Do Responsible team'];
 
-            // Flexible email extraction - maintaining compatibility while prioritizing requested team-based assignment
+            // Flexible email extraction
             const responsibleEmails: string[] = [
                 rowData['Responsible Person 1 Email Id'],
                 rowData['Responsible Person 2 Email Id'],
@@ -150,6 +151,11 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
                 const d = new Date(endDateStr);
                 if (!isNaN(d.getTime())) deadline = d;
             }
+            let taskCompletionDate: Date | null = null;
+            if (taskCompletionDateStr) {
+                const d = new Date(taskCompletionDateStr);
+                if (!isNaN(d.getTime())) taskCompletionDate = d;
+            }
 
             if (preview) {
                 previewData.push({
@@ -159,6 +165,7 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
                     status,
                     startDate,
                     deadline,
+                    taskCompletionDate,
                     primaryEmail,
                     responsibleTeam,
                     allResponsibles: responsibleEmails
@@ -214,9 +221,11 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
                     status,
                     deadline,
                     startDate,
+                    taskCompletionDate,
                     description: responsibleTeam || existingTask.description,
                     assignedToId: primaryUser.id,
-                    department: responsibleTeam || existingTask.department
+                    department: responsibleTeam || existingTask.department,
+                    responsibleTeam: responsibleTeam || existingTask.responsibleTeam
                 });
                 taskId = updated.id;
             } else {
@@ -225,11 +234,13 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
                     status,
                     deadline,
                     startDate,
+                    taskCompletionDate,
                     description: responsibleTeam || '',
                     workflowId,
                     assignedToId: primaryUser.id,
                     createdById: primaryUser.id,
-                    department: responsibleTeam || null
+                    department: responsibleTeam || null,
+                    responsibleTeam: responsibleTeam || null
                 });
                 taskId = newTask.id;
 
@@ -259,10 +270,10 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
             syncedTasks++;
         }
 
-        // --- NEW: Sync Department List (GID: 21350203) ---
+        // --- NEW: Sync Department List (GID: 16651627) ---
         if (!preview) {
             console.log("Syncing Department List...");
-            const deptSheetUrl = sheetUrl.replace(/gid=[0-9]+/, 'gid=21350203');
+            const deptSheetUrl = sheetUrl.replace(/gid=[0-9]+/, 'gid=16651627');
             try {
                 const deptResponse = await fetch(deptSheetUrl);
                 if (deptResponse.ok) {
@@ -275,41 +286,53 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
 
                     for (const deptRow of deptRecords) {
                         const dr = deptRow as any;
-                        const deptName = dr['Department / Team Name'] || dr['To Do Responsible team'];
+                        const deptName = dr['l'] || dr['Department / Team Name'] || dr['To Do Responsible team'];
                         if (!deptName || !deptName.trim()) continue;
 
                         const deptMail = dr['Department Mail'] || dr['mail'] || '';
+                        const headName = dr['Head Name'] || '';
                         const headEmail = (dr['Head Email'] || dr['Department head'] || '').trim().toLowerCase();
-                        const memberName = dr['member name'] || '';
-                        const memberMail = (dr['mail'] || '').trim().toLowerCase();
+                        
+                        // Extract members
+                        const members = [
+                            { name: dr['Member 1 Name'], email: (dr['Member 1 Email'] || '').trim().toLowerCase() },
+                            { name: dr['Member 2 Name'], email: (dr['Member 2 Email'] || '').trim().toLowerCase() },
+                            { name: dr['Member 3 Name'], email: (dr['Member 3 Email'] || '').trim().toLowerCase() },
+                            { name: dr['Member 4 Name'], email: (dr['Member 4 Email'] || '').trim().toLowerCase() },
+                        ].filter(m => m.email);
 
                         // Update or Create Department
                         const existingDepts = await FirestoreService.query('departments', [{ field: 'name', operator: '==', value: deptName.trim() }]);
+                        const deptData = {
+                            name: deptName.trim(),
+                            email: deptMail,
+                            headName: headName,
+                            headEmail: headEmail,
+                            members: members
+                        };
+
                         if (existingDepts.length > 0) {
-                            await FirestoreService.updateDoc('departments', existingDepts[0].id, {
-                                email: deptMail,
-                                headEmail: headEmail
-                            });
+                            await FirestoreService.updateDoc('departments', existingDepts[0].id, deptData);
                         } else {
-                            await FirestoreService.createDoc('departments', {
-                                name: deptName.trim(),
-                                email: deptMail,
-                                headEmail: headEmail
-                            });
+                            await FirestoreService.createDoc('departments', deptData);
                         }
 
-                        // Sync Users from Dept List
+                        // Sync Users from Dept List (Head and Members)
                         const usersToSync = [
-                            { email: headEmail, name: 'Dept Head' },
-                            { email: memberMail, name: memberName }
+                            { email: headEmail, name: headName || 'Dept Head' },
+                            ...members
                         ].filter(u => u.email);
 
                         for (const uInfo of usersToSync) {
                             let user = userMap.get(uInfo.email);
                             if (user) {
-                                if (user.department !== deptName.trim()) {
-                                    await FirestoreService.updateDoc('users', user.id, { department: deptName.trim() });
+                                if (user.department !== deptName.trim() || user.name !== uInfo.name) {
+                                    await FirestoreService.updateDoc('users', user.id, { 
+                                        department: deptName.trim(),
+                                        name: uInfo.name || user.name
+                                    });
                                     user.department = deptName.trim();
+                                    user.name = uInfo.name || user.name;
                                 }
                             } else {
                                 const newUser = await FirestoreService.createDoc('users', {

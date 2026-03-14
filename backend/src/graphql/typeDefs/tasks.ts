@@ -5,6 +5,9 @@ export const taskTypeDefs = `#graphql
     description: String
     status: String!
     deadline: String
+    startDate: String
+    taskCompletionDate: String
+    responsibleTeam: String
     workflowId: String
     assignedToId: String!
     createdById: String!

@@ -9,8 +9,10 @@ export interface Task {
     description?: string;
     status: string;
     priority: string;
-    deadline?: Date;
+    deadline?: Date; // Linked to "End date"
     startDate?: Date;
+    taskCompletionDate?: Date;
+    responsibleTeam?: string; // Linked to "To Do Responsible team"
     workflowId?: string;
     assignedToId: string;
     createdById: string;
