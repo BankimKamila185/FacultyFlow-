@@ -26,35 +26,45 @@ export class ReminderService {
                 return;
             }
 
-            // 2. Group tasks by user email
+            // 2. Fetch all users to avoid N+1 queries
+            const allUsers = await FirestoreService.getCollection('users');
+            const userMap = new Map(allUsers.map((u: any) => [u.id, u]));
+            const deptMemberMap: Record<string, any[]> = {};
+            
+            // Pre-group users by department
+            for (const user of allUsers) {
+                if (user.department) {
+                    if (!deptMemberMap[user.department]) deptMemberMap[user.department] = [];
+                    deptMemberMap[user.department].push(user);
+                }
+            }
+
+            // 3. Group tasks by user email
             const userTaskGroups: Record<string, { id: string; name: string; tasks: string[] }> = {};
 
             for (const task of pendingTasks) {
                 const recipients: { email: string; name: string }[] = [];
 
-                // 2a. Add primary assignee
-                const primaryUser = await FirestoreService.getDoc('users', task.assignedToId);
+                // 3a. Add primary assignee from map
+                const primaryUser = userMap.get(task.assignedToId);
                 if (primaryUser && primaryUser.email) {
                     recipients.push({ email: primaryUser.email, name: primaryUser.name || 'Faculty Member' });
                 }
 
-                // 2b. Add department members if it's a team task
-                if (task.department) {
-                    const deptMembers = await FirestoreService.query('users', [
-                        { field: 'department', operator: '==', value: task.department }
-                    ]);
-                    for (const member of deptMembers) {
+                // 3b. Add department members from map
+                if (task.department && deptMemberMap[task.department]) {
+                    for (const member of deptMemberMap[task.department]) {
                         if (member.email && !recipients.some(r => r.email === member.email)) {
                             recipients.push({ email: member.email, name: member.name || 'Dept Member' });
                         }
                     }
                 }
 
-                // 2c. Group tasks for each recipient
+                // 3c. Group tasks for each recipient
                 for (const recipient of recipients) {
                     if (!userTaskGroups[recipient.email]) {
                         userTaskGroups[recipient.email] = {
-                            id: '', // Not strictly needed for reminder email
+                            id: '', 
                             name: recipient.name,
                             tasks: [],
                         };

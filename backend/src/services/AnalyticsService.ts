@@ -56,12 +56,21 @@ export class AnalyticsService {
             userConstraints.push({ field: 'role', operator: '==', value: 'FACULTY' });
         }
 
-        const users = await FirestoreService.query('users', userConstraints);
+        const [users, allTasks] = await Promise.all([
+            FirestoreService.query('users', userConstraints),
+            FirestoreService.getCollection('tasks')
+        ]);
 
-        return Promise.all(users.map(async (user: any) => {
-            const totalTasks = await FirestoreService.count('tasks', [{ field: 'assignedToId', operator: '==', value: user.id } as any]);
-            const allAssignedTasks = await FirestoreService.query('tasks', [{ field: 'assignedToId', operator: '==', value: user.id } as any]);
-            const activeTasks = allAssignedTasks.filter(t => t.status !== 'COMPLETED').length;
+        const taskMap: Record<string, any[]> = {};
+        for (const task of allTasks) {
+            if (!taskMap[task.assignedToId]) taskMap[task.assignedToId] = [];
+            taskMap[task.assignedToId].push(task);
+        }
+
+        return users.map((user: any) => {
+            const userTasks = taskMap[user.id] || [];
+            const totalTasks = userTasks.length;
+            const activeTasks = userTasks.filter(t => t.status !== 'COMPLETED').length;
 
             return {
                 id: user.id,
@@ -73,7 +82,7 @@ export class AnalyticsService {
                     ? Math.round(((totalTasks - activeTasks) / totalTasks) * 100) 
                     : 0
             };
-        }));
+        });
     }
 
     static async getTaskTrends(filter?: { userId?: string, email?: string }) {
@@ -86,7 +95,7 @@ export class AnalyticsService {
 
         const trends: Record<string, Record<string, number>> = {};
         for (const task of tasks) {
-            const createdAt = task.createdAt?.toDate ? task.createdAt.toDate() : new Date(task.createdAt);
+            const createdAt = task.createdAt?.toDate ? task.createdAt.toDate() : (task.createdAt ? new Date(task.createdAt) : new Date());
             const month = createdAt.toISOString().substring(0, 7); // YYYY-MM
             if (!trends[month]) trends[month] = { PENDING: 0, IN_PROGRESS: 0, COMPLETED: 0, OVERDUE: 0 };
             trends[month][task.status] = (trends[month][task.status] || 0) + 1;
@@ -106,7 +115,7 @@ export class AnalyticsService {
 
         for (const task of tasks) {
             const deadline = task.deadline?.toDate ? task.deadline.toDate() : (task.deadline ? new Date(task.deadline) : null);
-            const updatedAt = task.updatedAt?.toDate ? task.updatedAt.toDate() : new Date(task.updatedAt);
+            const updatedAt = task.updatedAt?.toDate ? task.updatedAt.toDate() : (task.updatedAt ? new Date(task.updatedAt) : new Date());
 
             if (deadline) {
                 if (updatedAt <= deadline) {
@@ -126,22 +135,25 @@ export class AnalyticsService {
     }
 
     static async getWorkflowBreakdown(filter?: { userId?: string, email?: string }) {
-        const workflows = await FirestoreService.getCollection('workflows');
+        const [workflows, allTasks] = await Promise.all([
+            FirestoreService.getCollection('workflows'),
+            FirestoreService.getCollection('tasks')
+        ]);
 
-        return Promise.all(workflows.map(async (wf: any) => {
-            const taskConstraints: any[] = [{ field: 'workflowId', operator: '==', value: wf.id }];
-            if (filter?.userId) {
-                taskConstraints.push({ field: 'assignedToId', operator: '==', value: filter.userId });
+        const workflowTaskMap: Record<string, number> = {};
+        for (const task of allTasks) {
+            if (task.workflowId) {
+                if (filter?.userId && task.assignedToId !== filter.userId) continue;
+                workflowTaskMap[task.workflowId] = (workflowTaskMap[task.workflowId] || 0) + 1;
             }
-            const taskCount = await FirestoreService.count('tasks', taskConstraints);
+        }
 
-            return {
-                id: wf.id,
-                type: wf.type,
-                sprintName: wf.sprintName,
-                status: wf.status,
-                taskCount
-            };
+        return workflows.map((wf: any) => ({
+            id: wf.id,
+            type: wf.type,
+            sprintName: wf.sprintName,
+            status: wf.status,
+            taskCount: workflowTaskMap[wf.id] || 0
         }));
     }
 }

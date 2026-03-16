@@ -31,10 +31,10 @@ export default function AdminDashboard({ setActiveTab }) {
                 fetchWithAuth(`${API_URL}/users`),
                 fetchWithAuth(`${API_URL}/analytics/dashboard-metrics`)
             ]);
-            
+
             const usersData = await usersRes.json();
             const metricsData = await metricsRes.json();
-            
+
             if (usersData.success) {
                 setFacultyStats(usersData.data);
             }
@@ -97,7 +97,7 @@ export default function AdminDashboard({ setActiveTab }) {
     const handleSync = async (isCommit = false) => {
         setIsSyncing(true);
         try {
-            const res = await fetchWithAuth(`${API_URL}/sync`, { 
+            const res = await fetchWithAuth(`${API_URL}/sync`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ preview: !isCommit })
@@ -147,41 +147,41 @@ export default function AdminDashboard({ setActiveTab }) {
     const departmentData = departments
         .filter(dept => selectedDeptFilter === 'All' || dept === selectedDeptFilter)
         .map(dept => {
-        const matchingFaculty = facultyStats.filter(f => 
-            (f.department?.trim().toLowerCase() === dept.toLowerCase()) ||
-            (dept === 'Faculty' && (!f.department || f.department.trim() === ''))
-        );
-        
-        const stats = matchingFaculty.reduce((acc, f) => {
-            acc.total += (f.stats?.total || 0);
-            acc.completed += (f.stats?.completed || 0);
-            acc.pending += (f.stats?.pending || 0);
-            acc.overdue += (f.stats?.overdue || 0);
-            acc.inProgress += (f.stats?.inProgress || 0);
-            return acc;
-        }, { total: 0, completed: 0, pending: 0, overdue: 0, inProgress: 0 });
+            const matchingFaculty = facultyStats.filter(f =>
+                (f.department?.trim().toLowerCase() === dept.toLowerCase()) ||
+                (dept === 'Faculty' && (!f.department || f.department.trim() === ''))
+            );
 
-        return {
-            name: dept,
-            facultyCount: matchingFaculty.length,
-            stats,
-            completionRate: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0,
-            faculty: matchingFaculty
-        };
-    });
+            const stats = matchingFaculty.reduce((acc, f) => {
+                acc.total += (f.stats?.total || 0);
+                acc.completed += (f.stats?.completed || 0);
+                acc.pending += (f.stats?.pending || 0);
+                acc.overdue += (f.stats?.overdue || 0);
+                acc.inProgress += (f.stats?.inProgress || 0);
+                return acc;
+            }, { total: 0, completed: 0, pending: 0, overdue: 0, inProgress: 0 });
+
+            return {
+                name: dept,
+                facultyCount: matchingFaculty.length,
+                stats,
+                completionRate: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0,
+                faculty: matchingFaculty
+            };
+        });
 
     const sortedByCompletion = [...facultyStats]
         .filter(f => selectedDeptFilter === 'All' || f.department === selectedDeptFilter)
         .sort((a, b) => {
-        const rateA = a.stats?.total > 0 ? (a.stats.completed / a.stats.total) : 0;
-        const rateB = b.stats?.total > 0 ? (b.stats.completed / b.stats.total) : 0;
-        return rateB - rateA;
-    });
+            const rateA = a.stats?.total > 0 ? (a.stats.completed / a.stats.total) : 0;
+            const rateB = b.stats?.total > 0 ? (b.stats.completed / b.stats.total) : 0;
+            return rateB - rateA;
+        });
 
-    const filteredFaculty = facultyStats.filter(fac => 
+    const filteredFaculty = facultyStats.filter(fac =>
         (selectedDeptFilter === 'All' || fac.department === selectedDeptFilter) &&
         (fac.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         fac.email?.toLowerCase().includes(searchQuery.toLowerCase()))
+            fac.email?.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
     if (loading) {
@@ -295,37 +295,37 @@ export default function AdminDashboard({ setActiveTab }) {
                     <button className="btn-secondary" onClick={handleViewSheet} title="Open Source Spreadsheet">
                         Source Data
                     </button>
-                    <button 
-                        className={`btn-sync ${isSyncing ? 'loading' : ''}`} 
+                    <button
+                        className={`btn-sync ${isSyncing ? 'loading' : ''}`}
                         onClick={handleSync}
                         disabled={isSyncing}
                     >
                         {isSyncing ? 'Syncing...' : 'Sync Master Data'}
                     </button>
-                   <button className="btn-vibrant" onClick={() => setActiveTab('Projects')}>
+                    <button className="btn-vibrant" onClick={() => setActiveTab('Projects')}>
                         Portfolio View
                     </button>
                 </div>
             </div>
 
             <div className="filter-bar">
-                <button 
+                <button
                     className={`filter-item ${activeSemester === 'even' ? 'active' : ''}`}
                     onClick={() => setActiveSemester('even')}
                 >
                     Semester 2, 4, 6
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
                 </button>
-                <button 
+                <button
                     className={`filter-item ${activeSemester === 'odd' ? 'active' : ''}`}
                     onClick={() => setActiveSemester('odd')}
                 >
                     Semester 1, 3, 5, 7
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
                 </button>
                 <div className="filter-sep" />
                 <div className="dept-dropdown">
-                    <select 
+                    <select
                         className={`dept-select-trigger ${selectedDeptFilter !== 'All' ? 'active' : ''}`}
                         value={selectedDeptFilter}
                         onChange={(e) => setSelectedDeptFilter(e.target.value)}
@@ -378,122 +378,122 @@ export default function AdminDashboard({ setActiveTab }) {
                                 ))}
                             </div>
                         </div>
-                    <div className="dashboard-section">
-                        <div className="section-header">
-                            <h3 className="section-title">Performance Leaderboard</h3>
-                        </div>
-                        <div className="leaderboard-card">
-                            <table className="leader-table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: '60px' }}>Rank</th>
-                                        <th>Faculty Member</th>
-                                        <th style={{ width: '200px' }}>Completion Rate</th>
-                                        <th style={{ textAlign: 'right' }}>Active Tasks</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {sortedByCompletion.slice(0, 5).map((fac, idx) => {
-                                        const rate = fac.stats?.total > 0 ? Math.round((fac.stats.completed / fac.stats.total) * 100) : 0;
-                                        return (
-                                            <tr key={`leader-${fac.id}`} onClick={() => handleSelectFaculty(fac)} style={{ cursor: 'pointer' }}>
-                                                <td>
-                                                    <div className={`rank-badge rank-${idx + 1}`}>{idx + 1}</div>
-                                                </td>
-                                                <td>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                        <img src={fac.photoUrl || getAvatarUrl(fac.email)} style={{ width: 32, height: 32, borderRadius: 8 }} alt="" />
-                                                        <div>
-                                                            <div style={{ fontSize: '1rem', color: 'var(--text-main)' }}>{fac.name}</div>
-                                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>{fac.department || 'General'}</div>
+                        <div className="dashboard-section">
+                            <div className="section-header">
+                                <h3 className="section-title">Performance Leaderboard</h3>
+                            </div>
+                            <div className="leaderboard-card">
+                                <table className="leader-table">
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: '60px' }}>Rank</th>
+                                            <th>Faculty Member</th>
+                                            <th style={{ width: '200px' }}>Completion Rate</th>
+                                            <th style={{ textAlign: 'right' }}>Active Tasks</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {sortedByCompletion.slice(0, 5).map((fac, idx) => {
+                                            const rate = fac.stats?.total > 0 ? Math.round((fac.stats.completed / fac.stats.total) * 100) : 0;
+                                            return (
+                                                <tr key={`leader-${fac.id}`} onClick={() => handleSelectFaculty(fac)} style={{ cursor: 'pointer' }}>
+                                                    <td>
+                                                        <div className={`rank-badge rank-${idx + 1}`}>{idx + 1}</div>
+                                                    </td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                            <img src={fac.photoUrl || getAvatarUrl(fac.email)} style={{ width: 32, height: 32, borderRadius: 8 }} alt="" />
+                                                            <div>
+                                                                <div style={{ fontSize: '1rem', color: 'var(--text-main)' }}>{fac.name}</div>
+                                                                <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>{fac.department || 'General'}</div>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <div style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>
-                                                        {rate}%
-                                                        <div className="progress-container">
-                                                            <div className="progress-bar" style={{ width: `${rate}%` }} />
+                                                    </td>
+                                                    <td>
+                                                        <div style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>
+                                                            {rate}%
+                                                            <div className="progress-container">
+                                                                <div className="progress-bar" style={{ width: `${rate}%` }} />
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                </td>
-                                                <td style={{ textAlign: 'right', fontSize: '1.1rem', fontWeight: 900 }}>
-                                                    {(fac.stats?.pending || 0) + (fac.stats?.inProgress || 0)}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div className="dashboard-section">
-                        <div className="section-header">
-                            <h3 className="section-title">All Personnel</h3>
-                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                <div className="search-pill">
-                                    <span>🔍</span>
-                                    <input 
-                                        type="text" 
-                                        placeholder="Search by name or email..." 
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                    />
-                                </div>
-                                {globalMetrics?.tasks?.overdue > 0 && (
-                                    <button className="btn-nudge" onClick={handleNudgeAll}>
-                                        Nudge All Delayed
-                                    </button>
-                                )}
+                                                    </td>
+                                                    <td style={{ textAlign: 'right', fontSize: '1.1rem', fontWeight: 900 }}>
+                                                        {(fac.stats?.pending || 0) + (fac.stats?.inProgress || 0)}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
 
-                        <div className="faculty-grid">
-                            {filteredFaculty.map(fac => (
-                                <div key={fac.id} className="fac-card" onClick={() => handleSelectFaculty(fac)}>
-                                    <div className="fac-top">
-                                        <img src={fac.photoUrl || getAvatarUrl(fac.email)} alt={fac.name} className="fac-avatar" />
-                                        <div className="fac-info">
-                                            <div className="fac-name">{fac.name}</div>
-                                            <div className="fac-email">{fac.email}</div>
-                                        </div>
-                                        <div style={{ color: 'var(--text-muted)' }}>
-                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                                        </div>
+                        <div className="dashboard-section">
+                            <div className="section-header">
+                                <h3 className="section-title">All Personnel</h3>
+                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                    <div className="search-pill">
+                                        <span>🔍</span>
+                                        <input
+                                            type="text"
+                                            placeholder="Search by name or email..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                        />
                                     </div>
-                                    <div className="fac-stats">
-                                        <div className="stat-pill success">
-                                            <span className="stat-num">{fac.stats?.completed || 0}</span>
-                                            <span className="stat-label">Resolved</span>
-                                        </div>
-                                        <div className="stat-pill warning">
-                                            <span className="stat-num">{(fac.stats?.pending || 0) + (fac.stats?.inProgress || 0)}</span>
-                                            <span className="stat-label">In-Flight</span>
-                                        </div>
-                                        <div className="stat-pill danger">
-                                            <span className="stat-num">{fac.stats?.overdue || 0}</span>
-                                            <span className="stat-label">Critical</span>
-                                        </div>
-                                    </div>
+                                    {globalMetrics?.tasks?.overdue > 0 && (
+                                        <button className="btn-nudge" onClick={handleNudgeAll}>
+                                            Nudge All Delayed
+                                        </button>
+                                    )}
                                 </div>
-                            ))}
-                        </div>
-                        {filteredFaculty.length === 0 && (
-                            <div style={{ padding: '5rem', textAlign: 'center', color: 'var(--text-dim)', background: 'var(--bg-card)', borderRadius: '32px', border: '1px dashed var(--border-color)' }}>
-                                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🕵️‍♂️</div>
-                                <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)' }}>No matching personnel found</div>
-                                <div style={{ fontSize: '1rem' }}>Try adjusting your search parameters.</div>
                             </div>
-                        )}
-                    </div>
+
+                            <div className="faculty-grid">
+                                {filteredFaculty.map(fac => (
+                                    <div key={fac.id} className="fac-card" onClick={() => handleSelectFaculty(fac)}>
+                                        <div className="fac-top">
+                                            <img src={fac.photoUrl || getAvatarUrl(fac.email)} alt={fac.name} className="fac-avatar" />
+                                            <div className="fac-info">
+                                                <div className="fac-name">{fac.name}</div>
+                                                <div className="fac-email">{fac.email}</div>
+                                            </div>
+                                            <div style={{ color: 'var(--text-muted)' }}>
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                                            </div>
+                                        </div>
+                                        <div className="fac-stats">
+                                            <div className="stat-pill success">
+                                                <span className="stat-num">{fac.stats?.completed || 0}</span>
+                                                <span className="stat-label">Resolved</span>
+                                            </div>
+                                            <div className="stat-pill warning">
+                                                <span className="stat-num">{(fac.stats?.pending || 0) + (fac.stats?.inProgress || 0)}</span>
+                                                <span className="stat-label">In-Flight</span>
+                                            </div>
+                                            <div className="stat-pill danger">
+                                                <span className="stat-num">{fac.stats?.overdue || 0}</span>
+                                                <span className="stat-label">Critical</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            {filteredFaculty.length === 0 && (
+                                <div style={{ padding: '5rem', textAlign: 'center', color: 'var(--text-dim)', background: 'var(--bg-card)', borderRadius: '32px', border: '1px dashed var(--border-color)' }}>
+                                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🕵️‍♂️</div>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)' }}>No matching personnel found</div>
+                                    <div style={{ fontSize: '1rem' }}>Try adjusting your search parameters.</div>
+                                </div>
+                            )}
+                        </div>
                     </>
                 )
             ) : (
                 <div className="tasks-view">
                     <div className="tasks-header">
                         <div className="fac-top" style={{ gap: '1.75rem' }}>
-                            <img src={selectedFaculty.photoUrl || getAvatarUrl(selectedFaculty.email)} alt={selectedFaculty.name} className="fac-avatar" style={{width: 80, height: 80, borderRadius: '24px', border: '2px solid var(--border-color)'}} />
+                            <img src={selectedFaculty.photoUrl || getAvatarUrl(selectedFaculty.email)} alt={selectedFaculty.name} className="fac-avatar" style={{ width: 80, height: 80, borderRadius: '24px', border: '2px solid var(--border-color)' }} />
                             <div style={{ flex: 1 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div>
@@ -671,17 +671,17 @@ export default function AdminDashboard({ setActiveTab }) {
 
                         <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
                             <button className="btn-secondary" onClick={() => setShowPreviewModal(false)}>Cancel</button>
-                            <button 
-                                className={`btn-sync ${isSyncing ? 'loading' : ''}`} 
+                            <button
+                                className={`btn-sync ${isSyncing ? 'loading' : ''}`}
                                 onClick={() => handleSync(true)}
                                 disabled={isSyncing}
                             >
                                 {isSyncing ? 'Committing...' : 'Commit to Firestore'}
                             </button>
                         </div>
-                        
+
                         <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-dim)', textAlign: 'right' }}>
-                             ⚠️ Committing will consume Firestore write quota.
+                            ⚠️ Committing will consume Firestore write quota.
                         </div>
                     </div>
                 </div>

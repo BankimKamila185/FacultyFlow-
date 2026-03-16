@@ -9,7 +9,7 @@ export class EmailScheduler {
         this.processPendingEmails()
             .then(async () => {
                 console.log('[Scheduler] Initial check completed. Starting interval...');
-                setInterval(() => this.processPendingEmails(), 60000);
+                setInterval(() => this.processPendingEmails(), 300000); // 5 minutes
 
                 // Run pending task reminders every 24 hours
                 const { ReminderService } = await import('./ReminderService');
@@ -18,7 +18,7 @@ export class EmailScheduler {
             })
             .catch(async (err) => {
                 console.error('[Scheduler] Initialization failed:', err.message);
-                setInterval(() => this.processPendingEmails(), 60000);
+                setInterval(() => this.processPendingEmails(), 300000);
 
                 const { ReminderService } = await import('./ReminderService');
                 setInterval(() => ReminderService.sendPendingTaskReminders(), 24 * 60 * 60 * 1000);

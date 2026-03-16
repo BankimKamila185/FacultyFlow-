@@ -40,18 +40,7 @@ export function AuthProvider({ children }) {
     };
 
     useEffect(() => {
-        // fetchSession(); // Commented out due to Firestore quota
-        
-        // --- BYPASS LOGIN START ---
-        setBackendToken(true);
-        setBackendUser({
-            id: 'mock-admin-id',
-            email: 'admin@itm.edu',
-            name: 'Dev Admin (Bypassed)',
-            role: 'ADMIN'
-        });
-        setLoading(false);
-        // --- BYPASS LOGIN END ---
+        fetchSession();
 
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);

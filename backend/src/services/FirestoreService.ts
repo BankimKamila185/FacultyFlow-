@@ -4,19 +4,53 @@ import { config } from '../config';
 import { getFirestore } from 'firebase-admin/firestore';
 
 export class FirestoreService {
+    private static _dbInstance: ReturnType<typeof getFirestore> | null = null;
+    private static cache: Map<string, { data: any; expiry: number }> = new Map();
+    private static CACHE_TTL = 60 * 1000; // 1 minute default TTL
+
     private static get db() {
-        return config.FIREBASE_DATABASE_ID ? getFirestore(config.FIREBASE_DATABASE_ID) : firebaseAdmin.firestore();
+        if (!this._dbInstance) {
+            this._dbInstance = config.FIREBASE_DATABASE_ID 
+                ? getFirestore(firebaseAdmin.app(), config.FIREBASE_DATABASE_ID) 
+                : firebaseAdmin.firestore();
+        }
+        return this._dbInstance;
     }
 
-    static async getCollection<T = any>(collectionName: string): Promise<T[]> {
+    private static getCached<T>(key: string): T | null {
+        const item = this.cache.get(key);
+        if (item && item.expiry > Date.now()) {
+            return item.data as T;
+        }
+        this.cache.delete(key);
+        return null;
+    }
+
+    private static setCache(key: string, data: any, ttl = this.CACHE_TTL) {
+        this.cache.set(key, { data, expiry: Date.now() + ttl });
+    }
+
+    static async getCollection<T = any>(collectionName: string, useCache = true): Promise<T[]> {
+        if (useCache) {
+            const cached = this.getCached<T[]>(`coll_${collectionName}`);
+            if (cached) return cached;
+        }
         const snapshot = await this.db.collection(collectionName).get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
+        if (useCache) this.setCache(`coll_${collectionName}`, data);
+        return data;
     }
 
-    static async getDoc<T = any>(collectionName: string, docId: string): Promise<T | null> {
+    static async getDoc<T = any>(collectionName: string, docId: string, useCache = true): Promise<T | null> {
+        if (useCache) {
+            const cached = this.getCached<T>(`doc_${collectionName}_${docId}`);
+            if (cached) return cached;
+        }
         const doc = await this.db.collection(collectionName).doc(docId).get();
         if (!doc.exists) return null;
-        return { id: doc.id, ...doc.data() } as T;
+        const data = { id: doc.id, ...doc.data() } as T;
+        if (useCache) this.setCache(`doc_${collectionName}_${docId}`, data);
+        return data;
     }
 
     static async findFirst<T = any>(collectionName: string, field: string, operator: firestore.WhereFilterOp, value: any): Promise<T | null> {

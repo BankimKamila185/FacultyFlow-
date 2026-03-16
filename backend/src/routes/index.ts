@@ -33,18 +33,6 @@ router.use('/integrations/sheets', sheetsRoutes);
 router.use('/integrations/forms', formsRoutes);
 router.use('/reports', reportsRoutes);
 
-// Mock Departments list for admin bypass
-router.get('/departments', (req, res) => {
-    res.json({
-        success: true,
-        data: [
-            { name: 'Computer Science' },
-            { name: 'IT' },
-            { name: 'Data Science' },
-            { name: 'Electronics' }
-        ]
-    });
-});
 
 // Health check
 router.get('/health', async (req, res) => {
