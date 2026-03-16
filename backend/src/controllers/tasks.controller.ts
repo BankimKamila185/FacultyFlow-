@@ -29,17 +29,45 @@ export const getMyTasks = async (req: Request, res: Response): Promise<void> => 
         // Let's assume 'taskResponsibles' collection for consistency with old Prisma structure.
         const myResponsibles = await FirestoreService.query('taskResponsibles', [{ field: 'email', operator: '==', value: normalizedEmail }]);
 
-        const tasks = await Promise.all(myResponsibles.map(async (tr: any) => {
-            const task = await FirestoreService.getDoc<Task>('tasks', tr.taskId);
-            if (!task) return null;
+        // OPTIMIZED: batch-fetch tasks, workflows, responsibles — no N+1 loops
+        const taskIds = [...new Set(myResponsibles.map((tr: any) => tr.taskId as string))];
 
-            const workflow = task.workflowId ? await FirestoreService.getDoc('workflows', task.workflowId) : null;
-            const allResponsibles = await FirestoreService.query('taskResponsibles', [{ field: 'taskId', operator: '==', value: task.id }]);
+        if (taskIds.length === 0) {
+            res.json({ success: true, data: [] });
+            return;
+        }
 
-            const colleagues = allResponsibles
+        // Fetch all tasks in parallel
+        const rawTasks = await Promise.all(taskIds.map(id => FirestoreService.getDoc<Task>('tasks', id)));
+        const validTasks = rawTasks.filter(Boolean) as Task[];
+
+        // Collect unique workflow IDs and fetch them in parallel
+        const workflowIds = [...new Set(validTasks.map(t => t.workflowId).filter(Boolean) as string[])];
+        const workflowDocs = await Promise.all(workflowIds.map(id => FirestoreService.getDoc('workflows', id)));
+        const workflowMap = new Map(workflowDocs.filter(Boolean).map((w: any) => [w.id, w]));
+
+        // Fetch all responsibles for these tasks in batches of 10 (Firestore 'in' limit)
+        const respResults: any[] = [];
+        for (let i = 0; i < taskIds.length; i += 10) {
+            const chunk = taskIds.slice(i, i + 10);
+            const rows = await FirestoreService.query('taskResponsibles', [
+                { field: 'taskId', operator: 'in', value: chunk },
+            ]);
+            respResults.push(...rows);
+        }
+        const respByTask = respResults.reduce((acc: Record<string, any[]>, r: any) => {
+            if (!acc[r.taskId]) acc[r.taskId] = [];
+            acc[r.taskId].push(r);
+            return acc;
+        }, {});
+
+        const trMap = new Map(myResponsibles.map((tr: any) => [tr.taskId, tr]));
+
+        const tasks = validTasks.map(task => {
+            const workflow = workflowMap.get(task.workflowId || '');
+            const colleagues = (respByTask[task.id] || [])
                 .filter((r: any) => r.email !== normalizedEmail)
                 .map((r: any) => ({ email: r.email, role: r.role }));
-
             return {
                 id: task.id,
                 title: task.title,
@@ -47,15 +75,15 @@ export const getMyTasks = async (req: Request, res: Response): Promise<void> => 
                 deadline: task.deadline,
                 startDate: task.startDate,
                 description: task.description,
-                sprintName: workflow?.sprintName || null,
-                subEvent: workflow?.type || null,
-                myRole: tr.role,
+                sprintName: (workflow as any)?.sprintName || null,
+                subEvent: (workflow as any)?.type || null,
+                myRole: trMap.get(task.id)?.role,
                 responsibleTeam: task.description,
-                remarks: task.remarks || 'no remark',
+                remarks: (task as any).remarks || 'no remark',
                 colleagues,
                 workflowId: task.workflowId,
             };
-        }));
+        });
 
         const filteredTasks = tasks.filter(t => t !== null).sort((a: any, b: any) => {
             if (!a.startDate) return 1;

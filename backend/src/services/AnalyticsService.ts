@@ -2,48 +2,45 @@ import { FirestoreService } from './FirestoreService';
 
 export class AnalyticsService {
     static async getDashboardMetrics(filter?: { userId?: string, email?: string }) {
-        const constraints: any[] = [];
-        if (filter?.userId) {
-            constraints.push({ field: 'assignedToId', operator: '==', value: filter.userId });
-        } else if (filter?.email) {
-            constraints.push({ field: 'responsibleEmail', operator: '==', value: filter.email.toLowerCase() });
-        }
-
         try {
-            const [
-                pendingTasks, inProgressTasks, inReviewTasks, completedTasks, overdueTasks,
-                globalTotal
-            ] = await Promise.all([
-                FirestoreService.count('tasks', [...constraints, { field: 'status', operator: '==', value: 'PENDING' }]),
-                FirestoreService.count('tasks', [...constraints, { field: 'status', operator: '==', value: 'IN_PROGRESS' }]),
-                FirestoreService.count('tasks', [...constraints, { field: 'status', operator: '==', value: 'IN_REVIEW' }]),
-                FirestoreService.count('tasks', [...constraints, { field: 'status', operator: '==', value: 'COMPLETED' }]),
-                FirestoreService.count('tasks', [...constraints, { field: 'status', operator: '==', value: 'OVERDUE' }]),
-                FirestoreService.count('tasks', constraints),
+            // OPTIMIZED: 1 query instead of 6 separate count() calls
+            const constraints: any[] = [];
+            if (filter?.userId) {
+                constraints.push({ field: 'assignedToId', operator: '==', value: filter.userId });
+            }
+            // Note: responsibleEmail field is not indexed on tasks — use assignedToId path only
+            // If you need email-based filtering, pre-resolve userId first in the controller
+
+            const [tasks, activeWorkflows] = await Promise.all([
+                FirestoreService.query('tasks', constraints),
+                FirestoreService.count('workflows', [{ field: 'status', operator: '==', value: 'ACTIVE' }]),
             ]);
 
-            const activeWorkflows = await FirestoreService.count('workflows', [{ field: 'status', operator: '==', value: 'ACTIVE' }]);
+            // Group by status in memory — zero extra Firestore reads
+            const counts = { pending: 0, inProgress: 0, inReview: 0, completed: 0, overdue: 0 };
+            for (const t of (tasks as any[])) {
+                switch (t.status) {
+                    case 'PENDING':     counts.pending++;     break;
+                    case 'IN_PROGRESS': counts.inProgress++;  break;
+                    case 'IN_REVIEW':   counts.inReview++;    break;
+                    case 'COMPLETED':   counts.completed++;   break;
+                    case 'OVERDUE':     counts.overdue++;     break;
+                }
+            }
 
             return {
                 tasks: {
-                    total: globalTotal,
-                    pending: pendingTasks,
-                    inProgress: inProgressTasks,
-                    inReview: inReviewTasks,
-                    completed: completedTasks,
-                    overdue: overdueTasks,
-                    delayed: overdueTasks
+                    total: tasks.length,
+                    ...counts,
+                    delayed: counts.overdue,
                 },
-                workflows: {
-                    active: activeWorkflows,
-                }
+                workflows: { active: activeWorkflows },
             };
         } catch (error) {
             console.error('[AnalyticsService] Error fetching metrics:', error);
-            // Return zeros as fallback to prevent dashboard crash
             return {
                 tasks: { total: 0, pending: 0, inProgress: 0, inReview: 0, completed: 0, overdue: 0, delayed: 0 },
-                workflows: { active: 0 }
+                workflows: { active: 0 },
             };
         }
     }

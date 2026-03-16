@@ -7,6 +7,8 @@ export class FirestoreService {
     private static _dbInstance: ReturnType<typeof getFirestore> | null = null;
     private static cache: Map<string, { data: any; expiry: number }> = new Map();
     private static CACHE_TTL = 60 * 1000; // 1 minute default TTL
+    private static STABLE_COLLECTIONS = new Set(['workflows', 'departments', 'users']);
+    private static STABLE_TTL = 10 * 60 * 1000; // 10 minutes for rarely-changing collections
 
     private static get db() {
         if (!this._dbInstance) {
@@ -37,7 +39,8 @@ export class FirestoreService {
         }
         const snapshot = await this.db.collection(collectionName).get();
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
-        if (useCache) this.setCache(`coll_${collectionName}`, data);
+        const ttl = this.STABLE_COLLECTIONS.has(collectionName) ? this.STABLE_TTL : this.CACHE_TTL;
+        if (useCache) this.setCache(`coll_${collectionName}`, data, ttl);
         return data;
     }
 
@@ -61,6 +64,8 @@ export class FirestoreService {
     }
 
     static async createDoc<T = any>(collectionName: string, data: any, docId?: string): Promise<T> {
+        // Invalidate collection cache so next read is fresh
+        this.cache.delete(`coll_${collectionName}`);
         if (docId) {
             await this.db.collection(collectionName).doc(docId).set({
                 ...data,
@@ -80,6 +85,9 @@ export class FirestoreService {
     }
 
     static async updateDoc<T = any>(collectionName: string, docId: string, data: any): Promise<T> {
+        // Invalidate both the single-doc and collection caches
+        this.cache.delete(`doc_${collectionName}_${docId}`);
+        this.cache.delete(`coll_${collectionName}`);
         await this.db.collection(collectionName).doc(docId).update({
             ...data,
             updatedAt: firestore.FieldValue.serverTimestamp(),
@@ -89,6 +97,8 @@ export class FirestoreService {
     }
 
     static async deleteDoc(collectionName: string, docId: string): Promise<void> {
+        this.cache.delete(`doc_${collectionName}_${docId}`);
+        this.cache.delete(`coll_${collectionName}`);
         await this.db.collection(collectionName).doc(docId).delete();
     }
 

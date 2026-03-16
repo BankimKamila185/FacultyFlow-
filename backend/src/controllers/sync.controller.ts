@@ -97,6 +97,7 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
         let currentSprintName = '';
         let currentSubEvent = '';
         const previewData: any[] = [];
+        const syncedResponsibles: { taskId: string, emails: string[] }[] = [];
 
         for (const row of records) {
             const rowData = row as any;
@@ -253,21 +254,40 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
                 notificationsCreated++;
             }
 
-            // Update Responsibles
+            // Update Responsibles (OPTIMIZED: Collect for bulk processing)
             if (responsibleEmails.length > 0) {
-                const existingResp = await FirestoreService.query('taskResponsibles', [{ field: 'taskId', operator: '==', value: taskId }]);
-                await Promise.all(existingResp.map(r => FirestoreService.deleteDoc('taskResponsibles', r.id)));
-                
-                await Promise.all(responsibleEmails.map((email, i) => 
-                    FirestoreService.createDoc('taskResponsibles', {
-                        taskId,
-                        email: email.toLowerCase(),
-                        role: `responsible_${i + 1}`
-                    })
-                ));
+                syncedResponsibles.push({ taskId, emails: responsibleEmails });
             }
 
             syncedTasks++;
+        }
+
+        // --- NEW: Bulk Update Responsibles ---
+        if (!preview && syncedResponsibles.length > 0) {
+            console.log(`Bulk updating responsibles for ${syncedResponsibles.length} tasks...`);
+            for (let i = 0; i < syncedResponsibles.length; i += 10) {
+                const chunk = syncedResponsibles.slice(i, i + 10);
+                const ids = chunk.map(x => x.taskId);
+                
+                // 1. Fetch all existing in one query
+                const existing = await FirestoreService.query('taskResponsibles', [
+                    { field: 'taskId', operator: 'in', value: ids }
+                ]);
+                
+                // 2. Delete all existing
+                await Promise.all(existing.map(r => FirestoreService.deleteDoc('taskResponsibles', r.id)));
+                
+                // 3. Create new ones
+                await Promise.all(chunk.flatMap(({ taskId, emails }) =>
+                    emails.map((email: string, idx: number) =>
+                        FirestoreService.createDoc('taskResponsibles', {
+                            taskId,
+                            email: email.toLowerCase(),
+                            role: `responsible_${idx + 1}`
+                        })
+                    )
+                ));
+            }
         }
 
         // --- NEW: Sync Department List (GID: 16651627) ---

@@ -5,13 +5,14 @@ import { getFirestore } from "firebase/firestore";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyD0Dl7a2z08DdvYF_ws5h4LKCkiNxYFyAI",
-    authDomain: "facultyflow-78a2a.firebaseapp.com",
-    projectId: "facultyflow-78a2a",
-    storageBucket: "facultyflow-78a2a.firebasestorage.app",
-    messagingSenderId: "859960924999",
-    appId: "1:859960924999:web:bbb989cce4b4e9ec2a4a62",
-    measurementId: "G-9W59JHJQHM"
+    apiKey: "AIzaSyB08-H8LJWKE7deSHmRCFSb6-XyxptFdZc",
+    authDomain: "facultyflow-6c38f.firebaseapp.com",
+    databaseURL: "https://facultyflow-6c38f-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "facultyflow-6c38f",
+    storageBucket: "facultyflow-6c38f.firebasestorage.app",
+    messagingSenderId: "489085687002",
+    appId: "1:489085687002:web:4880f0650f413f5cdb81e3",
+    measurementId: "G-XTK1RC92WT"
 };
 
 // Initialize Firebase
