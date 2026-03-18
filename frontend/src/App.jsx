@@ -29,28 +29,54 @@ const icons = {
       <rect x="3" y="14" width="7" height="7" rx="1" />
     </svg>
   ),
-  Faculty: (
+  Analytics: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      <line x1="18" y1="20" x2="18" y2="10" />
+      <line x1="12" y1="20" x2="12" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="14" />
     </svg>
   ),
-  Operations: (
+  Reports: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="8" y1="6" x2="21" y2="6" />
-      <line x1="8" y1="12" x2="21" y2="12" />
-      <line x1="8" y1="18" x2="21" y2="18" />
-      <line x1="3" y1="6" x2="3.01" y2="6" />
-      <line x1="3" y1="12" x2="3.01" y2="12" />
-      <line x1="3" y1="18" x2="3.01" y2="18" />
+      <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+      <path d="M22 12A10 10 0 0 0 12 2v10z" />
     </svg>
   ),
-  Intelligence: (
+  AllTasks: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="2" />
-      <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </svg>
+  ),
+  Workflows: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+  FacultyUsers: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
+  Sync: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
+  ),
+  AIAssistant: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+  Notifications: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
     </svg>
   ),
   Settings: (
@@ -59,66 +85,94 @@ const icons = {
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   ),
-  Support: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-      <line x1="12" y1="17" x2="12.01" y2="17" />
-    </svg>
-  ),
-  Profile: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  ),
-  Projects: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-    </svg>
-  ),
-  'My Task': (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <line x1="3" y1="18" x2="21" y2="18" />
-    </svg>
-  ),
-  Calendar: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  ),
-  Workspace: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 4h16v16H4z" />
-      <path d="M4 9h16" />
-      <path d="M9 4v16" />
-    </svg>
-  ),
-  'AI Chat Bot': (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  ),
   Inbox: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
-      <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+      <polyline points="22,6 12,13 2,6" />
     </svg>
   ),
-  'Admin Panel': (
+  GoogleWorkspace: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <rect x="2" y="2" width="20" height="20" rx="4" />
+      <path d="M2 10h20" />
+      <path d="M10 2v20" />
+    </svg>
+  ),
+  AddEdit: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="16" />
+      <line x1="8" y1="12" x2="16" y2="12" />
+    </svg>
+  ),
+  Assign: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 3h5v5" />
+      <path d="M8 21H3v-5" />
+      <path d="M21 3l-7 7" />
+      <path d="M3 21l7-7" />
     </svg>
   ),
 };
 
-
+const getSidebarConfig = (role, counts) => {
+  const configs = {
+    ADMIN: {
+      OVERVIEW: [
+        { label: 'Dashboard', icon: icons.Dashboard },
+        { label: 'Analytics', icon: icons.Analytics },
+        { label: 'Reports', icon: icons.Reports },
+      ],
+      TASKS: [
+        { label: 'All Tasks', icon: icons.AllTasks, badge: counts.total > 0 ? String(counts.total) : null },
+        { label: 'Workflows', icon: icons.Workflows },
+        { label: 'Faculty & Users', icon: icons.FacultyUsers },
+      ],
+      TOOLS: [
+        { label: 'Sync', icon: icons.Sync },
+        { label: 'AI Assistant', icon: icons.AIAssistant },
+        { label: 'Notifications', icon: icons.Notifications, badge: counts.overdue > 0 ? String(counts.overdue) : null, badgeColor: '#EF4444' },
+        { label: 'Settings', icon: icons.Settings },
+      ],
+    },
+    OPS_MANAGER: {
+      OVERVIEW: [
+        { label: 'Dashboard', icon: icons.Dashboard },
+        { label: 'Analytics', icon: icons.Analytics },
+      ],
+      'TASK MANAGEMENT': [
+        { label: 'All Tasks', icon: icons.AllTasks, badge: counts.total > 0 ? String(counts.total) : null },
+        { label: 'Add / Edit Task', icon: icons.AddEdit, isNew: true },
+        { label: 'Workflows', icon: icons.Workflows },
+        { label: 'Assign / Reassign', icon: icons.Assign, isNew: true },
+      ],
+      TOOLS: [
+        { label: 'Sync', icon: icons.Sync },
+        { label: 'Reports', icon: icons.Reports },
+        { label: 'AI Assistant', icon: icons.AIAssistant },
+        { label: 'Notifications', icon: icons.Notifications, badge: '4', badgeColor: '#F59E0B' },
+        { label: 'Settings', icon: icons.Settings },
+      ],
+    },
+    FACULTY: {
+      'MY WORK': [
+        { label: 'Dashboard', icon: icons.Dashboard },
+        { label: 'My Tasks', icon: icons.AllTasks, badge: counts.total > 0 ? String(counts.total) : null },
+        { label: 'Workflows', icon: icons.Workflows },
+      ],
+      COMMUNICATION: [
+        { label: 'Inbox', icon: icons.Inbox, badge: '5', badgeColor: '#F59E0B' },
+        { label: 'AI Assistant', icon: icons.AIAssistant },
+        { label: 'Notifications', icon: icons.Notifications, badge: counts.overdue > 0 ? String(counts.overdue) : null, badgeColor: '#EF4444' },
+      ],
+      INTEGRATIONS: [
+        { label: 'Google Workspace', icon: icons.GoogleWorkspace },
+        { label: 'Settings', icon: icons.Settings },
+      ],
+    },
+  };
+  return configs[role] || configs.FACULTY;
+};
 
 export default function App() {
   const { currentUser, devUser, backendUser, backendToken, loginWithGoogle, logout } = useAuth();
@@ -127,52 +181,68 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState(null);
-  const [isSearching, setIsSearching] = useState(false);
   const [toast, setToast] = useState(null);
+  const [counts, setCounts] = useState({ total: 0, overdue: 0, inbox: 0 });
+
+  const effectiveUser = devUser || backendUser || currentUser;
+
+  useEffect(() => {
+    if (!backendToken) return;
+    const fetchCounts = async () => {
+      try {
+        const res = await fetch(`${API_URL}/analytics/dashboard`, {
+          headers: { 'Authorization': `Bearer ${backendToken}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          setCounts({
+            total: data.data.tasks.total || 0,
+            overdue: data.data.tasks.overdue || 0,
+            inbox: 5 
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch counts:", err);
+      }
+    };
+    fetchCounts();
+    const interval = setInterval(fetchCounts, 60000);
+    return () => clearInterval(interval);
+  }, [backendToken]);
 
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
   };
 
-  const effectiveUser = devUser || currentUser || backendUser || {
-    name: 'UI Developer',
-    email: 'dev@facultyflow.com',
-    role: 'ADMIN',
-    photoURL: 'https://ui-avatars.com/api/?name=UI+Dev'
-  };
+  useEffect(() => {
+    document.body.className = `theme-${theme}`;
+  }, [theme]);
 
-  const isAdmin = (effectiveUser?.role || '').toUpperCase() === 'ADMIN' || (effectiveUser?.role || '').toUpperCase() === 'HOD';
+  if (!backendToken) {
+    return <Login onLogin={loginWithGoogle} />;
+  }
+
+  const isAdmin = ['ADMIN', 'HOD', 'OPS_MANAGER'].includes((effectiveUser?.role || '').toUpperCase());
 
   // Tab routing map: sidebar label -> component tab name
   const tabRouteMap = {
     'Dashboard': 'Dashboard',
+    'Analytics': 'Admin Panel',
     'Faculty': 'Profile',
+    'Faculty & Users': 'Profile',
     'Operations': 'My Task',
+    'All Tasks': 'My Task',
+    'My Tasks': 'My Task',
     'Intelligence': 'Admin Panel',
     'Settings': 'Settings',
     'Support': 'Inbox',
-    'Projects': 'Projects',
-    'My Task': 'My Task',
     'Inbox': 'Inbox',
-    'Admin Panel': 'Admin Panel',
-    'AI Chat Bot': 'AI Chat Bot',
-    'Workspace': 'Workspace',
+    'Workflows': 'Projects',
+    'AI Assistant': 'AI Chat Bot',
+    'Google Workspace': 'Workspace',
     'Calendar': 'Calendar',
   };
-
-  const menuItems = [
-    { label: 'Dashboard', icon: icons.Dashboard },
-    { label: 'Faculty', icon: icons.Faculty },
-    { label: 'Operations', icon: icons.Operations },
-    ...(isAdmin ? [{ label: 'Intelligence', icon: icons.Intelligence }] : []),
-  ];
-
-  const generalItems = [
-    { label: 'Settings', icon: icons.Settings },
-    { label: 'Support', icon: icons.Support },
-  ];
 
   // Map sidebar active label back for content rendering
   const activeContent = tabRouteMap[activeTab] || activeTab;
@@ -181,9 +251,6 @@ export default function App() {
     setActiveTab(label);
   };
 
-  useEffect(() => {
-    document.body.className = `theme-${theme}`;
-  }, [theme]);
 
   return (
     <div className={`app-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
@@ -201,45 +268,40 @@ export default function App() {
 
         {/* Logo */}
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">
-            <img src="/logo-white.svg" alt="FacultyFlow Logo" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
-          </div>
-          {!sidebarCollapsed && <span className="sidebar-brand">FACULTYFLOW</span>}
+          <img src="/logo.svg" alt="FacultyFlow Logo" className="sidebar-logo-img" style={{ width: '42px', height: '42px', borderRadius: '12px' }} />
+          {!sidebarCollapsed && <span className="sidebar-brand">FacultyFlow</span>}
         </div>
 
-        {/* MENU section */}
-        {!sidebarCollapsed && <div className="side-category">MENU</div>}
-        <nav className="nav-menu">
-          {menuItems.map((item) => (
-            <div
-              key={item.label}
-              className={`nav-item ${activeTab === item.label ? 'active' : ''}`}
-              onClick={() => handleNavClick(item.label)}
-              title={sidebarCollapsed ? item.label : ''}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              {!sidebarCollapsed && <span className="nav-label">{item.label}</span>}
-            </div>
-          ))}
-        </nav>
+        {/* Profile Card removed */}
 
-        {/* GENERAL section */}
-        {!sidebarCollapsed && <div className="side-category" style={{ marginTop: '1.5rem' }}>GENERAL</div>}
-        <nav className="nav-menu">
-          {generalItems.map((item) => (
-            <div
-              key={item.label}
-              className={`nav-item ${activeTab === item.label ? 'active' : ''}`}
-              onClick={() => handleNavClick(item.label)}
-              title={sidebarCollapsed ? item.label : ''}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              {!sidebarCollapsed && <span className="nav-label">{item.label}</span>}
-            </div>
+        <div className="sidebar-scrollable">
+          {Object.entries(getSidebarConfig(effectiveUser?.role?.toUpperCase() || 'FACULTY', counts)).map(([category, items]) => (
+            <React.Fragment key={category}>
+              {!sidebarCollapsed && <div className="side-category">{category}</div>}
+              <nav className="nav-menu">
+                {items.map((item) => (
+                  <div
+                    key={item.label}
+                    className={`nav-item ${activeTab === item.label ? 'active' : ''}`}
+                    onClick={() => handleNavClick(item.label)}
+                    title={sidebarCollapsed ? item.label : ''}
+                  >
+                    <span className="nav-icon">{item.icon}</span>
+                    {!sidebarCollapsed && <span className="nav-label">{item.label}</span>}
+                    {item.badge && !sidebarCollapsed && (
+                      <span className="nav-badge" style={{ backgroundColor: item.badgeColor || '#EF4444', color: 'white' }}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </nav>
+            </React.Fragment>
           ))}
-        </nav>
+        </div>
 
-        <div style={{ flex: 1 }} />
+
+        {/* Spacer removed */}
 
         {/* Collapse toggle */}
         <button className="collapse-btn" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
@@ -303,7 +365,7 @@ export default function App() {
           {activeContent === 'Projects' && <Workflow />}
           {activeContent === 'My Task' && <Tasks />}
           {activeContent === 'Inbox' && <Inbox setActiveTab={setActiveTab} />}
-          {isAdmin && activeContent === 'Admin Panel' && <AdminDashboard setActiveTab={setActiveTab} />}
+          {isAdmin && activeContent === 'Admin Panel' && <AdminDashboard />}
           {activeContent === 'AI Chat Bot' && <AIAssistant />}
           {activeContent === 'Workspace' && <GoogleTools setActiveTab={setActiveTab} />}
           {activeContent === 'Calendar' && <GoogleCalendar />}

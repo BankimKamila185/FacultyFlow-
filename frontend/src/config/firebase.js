@@ -21,8 +21,8 @@ const app = initializeApp(firebaseConfig);
 // Initialize Analytics
 export const analytics = getAnalytics(app);
 
-// Initialize Firestore with named database
-export const db = getFirestore(app, 'facultyflow');
+// Initialize Firestore with explicit database name
+export const db = getFirestore(app, "default");
 
 // Initialize Firebase Auth
 export const auth = getAuth(app);

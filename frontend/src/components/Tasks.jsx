@@ -249,14 +249,7 @@ export default function Tasks() {
                                     <button 
                                         onClick={() => updateTaskStatus(task.id, 'COMPLETED')}
                                         className="btn-action btn-complete">
-                                        Complete Task
-                                    </button>
-                                )}
-                                {task.status === 'PENDING' && (
-                                    <button 
-                                        onClick={() => updateTaskStatus(task.id, 'IN_PROGRESS')}
-                                        className="btn-action btn-initiate">
-                                        Initiate Action
+                                        Verify to Complete
                                     </button>
                                 )}
                             </div>

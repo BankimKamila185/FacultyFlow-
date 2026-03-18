@@ -1,4 +1,4 @@
-export type Role = 'FACULTY' | 'HOD' | 'ADMIN';
+export type Role = 'FACULTY' | 'HOD' | 'ADMIN' | 'OPS_MANAGER';
 
 export type Permission =
     | 'task:read:own'
@@ -51,6 +51,20 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
         'task:create', 'task:assign', 'task:nudge',
         'user:read:own', 'user:read:department', 'user:update:own',
         'analytics:read:own', 'analytics:read:department',
+        'sync:trigger',
+        'report:download',
+        'workflow:read', 'workflow:manage',
+        'notification:read:own',
+        'ai:use', 'ai:suggest',
+        'inbox:read', 'inbox:sync',
+        'google:calendar', 'google:drive', 'google:sheets', 'google:forms',
+    ],
+    OPS_MANAGER: [
+        'task:read:own', 'task:read:all', 'task:read:department',
+        'task:update:own', 'task:update:any',
+        'task:create', 'task:assign', 'task:nudge',
+        'user:read:own', 'user:read:all', 'user:read:department',
+        'analytics:read:own', 'analytics:read:all', 'analytics:read:department',
         'sync:trigger',
         'report:download',
         'workflow:read', 'workflow:manage',

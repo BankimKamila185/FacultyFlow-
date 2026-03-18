@@ -118,27 +118,52 @@ export const updateFacultyProfile = async (req: any, res: Response): Promise<voi
 export const getAllFacultyStats = async (req: Request, res: Response): Promise<void> => {
     try {
         const currentUser = (req as any).user;
-        if (currentUser?.role !== 'ADMIN' && currentUser?.role !== 'HOD') {
+        if (currentUser?.role !== 'ADMIN' && currentUser?.role !== 'HOD' && currentUser?.role !== 'OPS_MANAGER') {
             res.status(403).json({ success: false, message: 'Forbidden: Admin access required.' });
             return;
         }
 
-        // MOCK DATA FOR ADMIN WORK
-        const mockFaculty = [
-            { id: '1', name: 'Dr. Meet D.', email: 'meetd@itm.edu', department: 'Computer Science', stats: { total: 15, completed: 10, pending: 3, inProgress: 1, overdue: 1 } },
-            { id: '2', name: 'Harshita D.', email: 'harshitad@itm.edu', department: 'IT', stats: { total: 12, completed: 8, pending: 2, inProgress: 2, overdue: 0 } },
-            { id: '3', name: 'Jasmine T.', email: 'jasminet@itm.edu', department: 'Data Science', stats: { total: 20, completed: 15, pending: 4, inProgress: 1, overdue: 0 } },
-            { id: '4', name: 'Aarti P.', email: 'aartip@itm.edu', department: 'Computer Science', stats: { total: 18, completed: 12, pending: 5, inProgress: 1, overdue: 0 } },
-            { id: '5', name: 'Kalpana S.', email: 'kalpanas@itm.edu', department: 'IT', stats: { total: 25, completed: 20, pending: 3, inProgress: 2, overdue: 0 } }
-        ];
-        res.json({ success: true, data: mockFaculty });
-        return;
+        // REAL DATA FOR ADMIN WORK
+        const users = await FirestoreService.getCollection('users');
+        const tasks = await FirestoreService.getCollection('tasks');
+        const responsibles = await FirestoreService.getCollection('taskResponsibles');
 
-        /*
-        const facultyList = await FirestoreService.query('users', [{ field: 'role', operator: '==', value: 'FACULTY' }]);
-        ...
+        const statsMap = await Promise.all(users.map(async (u: any) => {
+            const userEmail = u.email?.toLowerCase();
+            const userTaskIds = responsibles
+                .filter((r: any) => r.email?.toLowerCase() === userEmail)
+                .map((r: any) => r.taskId);
+            
+            const userTasks = tasks.filter((t: any) => userTaskIds.includes(t.id));
+
+            const completed = userTasks.filter((t: any) => t.status === 'COMPLETED').length;
+            const inProgress = userTasks.filter((t: any) => t.status === 'IN_PROGRESS' || t.status === 'IN_REVIEW').length;
+            const pending = userTasks.filter((t: any) => t.status === 'PENDING').length;
+            const overdue = userTasks.filter((t: any) => t.status === 'OVERDUE').length;
+
+            const totalDays = userTasks.reduce((sum: number, t: any) => {
+                const days = parseInt(t.daysRequired || t['Number of Days Required'] || '0');
+                return sum + (isNaN(days) ? 0 : days);
+            }, 0);
+
+            return {
+                id: u.id,
+                name: u.name || u.email.split('@')[0],
+                email: u.email,
+                department: u.department || '',
+                stats: {
+                    total: userTasks.length,
+                    completed,
+                    pending,
+                    inProgress,
+                    overdue,
+                    workloadDays: totalDays
+                }
+            };
+        }));
+
         res.json({ success: true, data: statsMap });
-        */
+        return;
     } catch (error: any) {
         console.error('Error fetching all faculty stats:', error);
         res.status(500).json({ success: false, message: error.message });

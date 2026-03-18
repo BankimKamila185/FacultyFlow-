@@ -7,6 +7,7 @@ export interface User {
     email: string;
     name: string;
     role: string;
+    department?: string; // Added department field
     googleId?: string;
     googleAccessToken?: string;
     googleRefreshToken?: string;

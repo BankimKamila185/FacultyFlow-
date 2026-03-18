@@ -14,6 +14,7 @@ import aiRoutes from './ai.routes';
 import sheetsRoutes from './sheets.routes';
 import formsRoutes from './forms.routes';
 import reportsRoutes from './reports.routes';
+import departmentsRoutes from './departments.routes';
 
 const router = Router();
 
@@ -32,6 +33,7 @@ router.use('/ai', aiRoutes);
 router.use('/integrations/sheets', sheetsRoutes);
 router.use('/integrations/forms', formsRoutes);
 router.use('/reports', reportsRoutes);
+router.use('/departments', departmentsRoutes);
 
 
 // Health check

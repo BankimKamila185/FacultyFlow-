@@ -12,16 +12,20 @@ export class AnalyticsController {
             let filterEmail = user.email;
             let filterUserId = user.id;
 
+            const isAdminRole = ['ADMIN', 'HOD', 'OPS_MANAGER'].includes(user?.role?.toUpperCase());
             const requestedEmail = req.query.email as string;
-            if (requestedEmail && (user?.role === 'ADMIN' || user?.role === 'HOD')) {
-                filterEmail = requestedEmail.toLowerCase();
-                // If we need the actual user ID for that email, we might have to fetch it, but 
-                // AnalyticsService mostly relies on email for responsibles matching anyway.
-                // It's safer to just nullify the target ID to force fallback to email.
-                filterUserId = undefined; 
+
+            if (isAdminRole) {
+                if (requestedEmail) {
+                    filterEmail = requestedEmail.toLowerCase();
+                    filterUserId = undefined; 
+                } else {
+                    filterEmail = undefined;
+                    filterUserId = undefined;
+                }
             }
 
-            // ALWAYS filter for personalized metrics based on current user or requested view
+            // Filter for personalized metrics based on current user, or system-wide for admins
             const filter = { userId: filterUserId, email: filterEmail };
             
             console.log(`[Analytics] Fetching live metrics for: ${user?.email}`);

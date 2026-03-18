@@ -23,10 +23,6 @@ export const authenticate: RequestHandler = async (req: any, res, next) => {
         token = req.cookies.auth_token;
     }
 
-    if (process.env.NODE_ENV === 'development') {
-        req.user = { id: 'mock-admin-id', email: 'admin@itm.edu', name: 'Dev Admin', role: 'ADMIN' };
-        return next();
-    }
 
     if (!token) {
         return res.status(401).json({ success: false, error: 'Unauthorized' });

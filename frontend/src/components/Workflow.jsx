@@ -35,8 +35,6 @@ export default function Workflow() {
   const stages = [
     { id: 'PENDING', title: 'To Do', dot: 'var(--kb-todo-dot)', tint: 'var(--col-todo-bg)' },
     { id: 'IN_PROGRESS', title: 'In Progress', dot: 'var(--kb-progress-dot)', tint: 'var(--col-progress-bg)' },
-    { id: 'IN_REVIEW', title: 'In Review', dot: '#8B5CF6', tint: 'rgba(139, 92, 246, 0.05)' },
-    { id: 'OVERDUE', title: 'Overdue', dot: '#EF4444', tint: 'rgba(239, 68, 68, 0.05)' },
     { id: 'COMPLETED', title: 'Completed', dot: 'var(--kb-done-dot)', tint: 'var(--col-done-bg)' },
   ];
 
@@ -57,10 +55,14 @@ export default function Workflow() {
 
             const priority = task.priority || 'Medium';
             
+            // Map CSV/Backend statuses to Kanban stages
+            let mappedStage = (task.status || 'PENDING').trim().toUpperCase();
+            if (mappedStage === 'STARTED') mappedStage = 'IN_PROGRESS';
+            if (mappedStage === 'DELAYED' || mappedStage === 'OVERDUE' || mappedStage === 'IN_REVIEW') mappedStage = 'IN_PROGRESS';
+            
             let progress = 0;
-            if (task.status === 'COMPLETED') progress = 100;
-            else if (task.status === 'IN_REVIEW') progress = 85;
-            else if (task.status === 'IN_PROGRESS') progress = 50;
+            if (mappedStage === 'COMPLETED') progress = 100;
+            else if (mappedStage === 'IN_PROGRESS') progress = 50;
 
             const displayTitle = task.sprintName ? `${task.title} (${task.sprintName})` : task.title;
 
@@ -68,15 +70,15 @@ export default function Workflow() {
               id: task.id,
               title: displayTitle,
               faculty: task.assignedTo?.name || 'Unassigned',
-              stage: task.status || 'PENDING',
+              stage: mappedStage,
               deadline: task.deadline ? new Date(task.deadline).toLocaleDateString() : null,
               priority,
               progress,
               description: task.description || '',
               isMe,
               others,
-              files: 0, // Not yet implemented in DB
-              comments: 0 // Not yet implemented in DB
+              files: 0, 
+              comments: 0 
             };
           });
           setRawTasks(mappedTasks);
@@ -235,7 +237,13 @@ export default function Workflow() {
                         <span>{task.progress}%</span>
                       </div>
                       <div className="kb-progress-bar">
-                        <div className="kb-progress-fill" style={{ width: `${task.progress}%` }} />
+                        <div 
+                          className="kb-progress-fill" 
+                          style={{ 
+                            width: `${task.progress}%`,
+                            backgroundColor: task.progress === 100 ? '#10B981' : task.progress > 0 ? '#3B82F6' : '#94A3B8'
+                          }} 
+                        />
                       </div>
                     </div>
 
@@ -262,6 +270,33 @@ export default function Workflow() {
                         </div>
                       </div>
                     </div>
+                    {task.stage !== 'COMPLETED' && (
+                      <button 
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            const res = await fetchWithAuth(`${API_URL}/tasks/${task.id}/status`, {
+                              method: 'PATCH',
+                              body: JSON.stringify({ status: 'COMPLETED' })
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                              setRawTasks(prev => prev.map(t => t.id === task.id ? { ...t, stage: 'COMPLETED', progress: 100 } : t));
+                            }
+                          } catch (err) {
+                            console.error("Failed to update status:", err);
+                          }
+                        }}
+                        style={{
+                          marginTop: '0.75rem', width: '100%', padding: '0.4rem', 
+                          borderRadius: '8px', border: '1px solid #10B981', 
+                          background: '#ECFDF5', color: '#059669', fontSize: '0.7rem', 
+                          fontWeight: 700, cursor: 'pointer'
+                        }}
+                      >
+                        Mark Completed
+                      </button>
+                    )}
                   </div>
                 ))}
                 {colTasks.length === 0 && (

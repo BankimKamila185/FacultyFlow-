@@ -33,6 +33,7 @@ export class AuthController {
                         email: user.email,
                         name: user.name,
                         role: user.role,
+                        department: user.department,
                         devUser: user.devModeContext ? JSON.parse(user.devModeContext) : null
                     }, 
                     token 
@@ -81,6 +82,7 @@ export class AuthController {
                         email: userData.email, 
                         name: userData.name, 
                         role: userData.role,
+                        department: userData.department,
                         devUser: userData.devModeContext ? JSON.parse(userData.devModeContext) : null
                     },
                     token
@@ -115,7 +117,17 @@ export class AuthController {
             const userId = (req as any).user?.id;
             if (!userId) return res.status(401).json({ success: false, error: 'Not authenticated' });
 
-            const user = await FirestoreService.getDoc<any>('users', userId);
+            let user = await FirestoreService.getDoc<any>('users', userId);
+            
+            if (!user && process.env.NODE_ENV === 'development' && userId === 'mock-admin-id') {
+                user = {
+                    id: 'mock-admin-id',
+                    email: 'admin@itm.edu',
+                    name: 'Dev Admin',
+                    role: 'ADMIN'
+                };
+            }
+
             if (!user) return res.status(404).json({ success: false, error: 'User not found' });
 
             res.status(200).json({
@@ -126,6 +138,7 @@ export class AuthController {
                         email: user.email,
                         name: user.name,
                         role: user.role,
+                        department: user.department,
                         devUser: user.devModeContext ? JSON.parse(user.devModeContext) : null
                     }
                 }

@@ -59,6 +59,28 @@ export default function Dashboard({ setActiveTab }) {
         }
     };
 
+    const isCurrentWeek = (dateStr) => {
+        if (!dateStr) return false;
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return false;
+
+        const now = new Date(); // Current date: Mar 17, 2026
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        // Get Monday of current week
+        const day = today.getDay(); // 0 (Sun) to 6 (Sat)
+        const diffToMonday = today.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(today.setDate(diffToMonday));
+        monday.setHours(0, 0, 0, 0);
+
+        // Get Sunday of current week
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+
+        return date >= monday && date <= sunday;
+    };
+
     useEffect(() => {
         fetchData(true); // Initial sync + fetch
         const interval = setInterval(() => fetchData(false), 300000);
@@ -333,7 +355,10 @@ export default function Dashboard({ setActiveTab }) {
             {/* ─── List Task Table ───────────────────────────────────────────── */}
             <div className="db-table-section" style={{ marginTop: '2rem', borderRadius: '24px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
                 <div className="dt-header" style={{ padding: '1.25rem 1.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Master Task Registry</h2>
+                    <div>
+                        <h2 style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Weekly Task Registry</h2>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontWeight: 600, marginTop: '2px' }}>Showing intel for the current week (Mon - Sun)</p>
+                    </div>
                     <button 
                         onClick={() => setActiveTab('My Task')}
                         style={{ 
@@ -361,9 +386,9 @@ export default function Dashboard({ setActiveTab }) {
                         <tbody>
                             {loading ? (
                                 <tr><td colSpan="6" style={{ textAlign: 'center', padding: '10rem', color: 'var(--text-muted)', fontSize: '1.1rem', fontWeight: 700 }}>Sourcing intel...</td></tr>
-                            ) : tasks.length === 0 ? (
-                                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '10rem', color: 'var(--text-muted)', fontSize: '1.1rem', fontWeight: 700 }}>Registry is currently clear.</td></tr>
-                            ) : tasks.map((task, idx) => {
+                            ) : tasks.filter(t => isCurrentWeek(t.deadline) || isCurrentWeek(t.startDate)).length === 0 ? (
+                                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '10rem', color: 'var(--text-muted)', fontSize: '1.1rem', fontWeight: 700 }}>Registry is currently clear for this week.</td></tr>
+                            ) : tasks.filter(t => isCurrentWeek(t.deadline) || isCurrentWeek(t.startDate)).map((task, idx) => {
                                 const isDone = task.status === 'COMPLETED';
                                 let pct = 0;
                                 if (isDone) pct = 100;
@@ -414,60 +439,73 @@ export default function Dashboard({ setActiveTab }) {
             {/* ─── Task List Modal ─────────────────────────────────────────── */}
             {showModal && (
                 <div style={{
-                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+                    position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.3)', backdropFilter: 'blur(8px)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '2rem'
                 }} onClick={() => setShowModal(false)}>
                     <div style={{
-                        background: 'var(--bg-card)', width: '100%', maxWidth: '800px', borderRadius: '28px',
-                        border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-lg)', overflow: 'hidden',
+                        background: '#ffffff', width: '100%', maxWidth: '720px', borderRadius: '24px',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden',
                         display: 'flex', flexDirection: 'column', maxHeight: '85vh', animation: 'modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
                     }} onClick={e => e.stopPropagation()}>
-                        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)' }}>
-                            <h2 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>{modalTitle}</h2>
+                        <div style={{ padding: '1.75rem 2rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff' }}>
+                            <h2 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em', margin: 0 }}>{modalTitle}</h2>
                             <button onClick={() => setShowModal(false)} style={{
-                                background: 'var(--bg-dark)', border: 'none', color: 'var(--text-muted)', width: '32px', height: '32px',
-                                borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
-                            }} onMouseEnter={e => e.currentTarget.style.color = 'var(--text-main)'}>
+                                background: '#f8fafc', border: 'none', color: '#64748b', width: '36px', height: '36px',
+                                borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
+                            }} onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#0f172a'; }}
+                               onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#64748b'; }}>
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             </button>
                         </div>
-                        <div style={{ overflowY: 'auto', padding: '1.5rem 2rem' }}>
+                        <div style={{ overflowY: 'auto', padding: '1.5rem 2rem', background: '#f8fafc' }}>
                             {filteredTasks.length === 0 ? (
-                                <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-dim)', fontWeight: 600 }}>No tasks found in this category.</div>
+                                <div style={{ padding: '4rem', textAlign: 'center', color: '#64748b', fontWeight: 600 }}>No tasks found in this category.</div>
                             ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    {filteredTasks.map(task => (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                                    {filteredTasks.map(task => {
+                                        const isCompleted = task.status === 'COMPLETED';
+                                        return (
                                         <div key={task.id} style={{
-                                            padding: '1.25rem', borderRadius: '18px', background: 'var(--bg-dark)', border: '1px solid var(--border-color)',
-                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                                        }}>
+                                            padding: '1.25rem 1.5rem', borderRadius: '16px', background: '#ffffff', 
+                                            border: '1px solid #e2e8f0', boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                            transition: 'all 0.2s ease', cursor: 'default'
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.05)'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.02)'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
+                                        >
                                             <div style={{ flex: 1 }}>
-                                                <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '0.95rem', marginBottom: '4px' }}>{task.title}</div>
-                                                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 700 }}>
-                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                                                        {task.deadline ? new Date(task.deadline).toLocaleDateString() : 'No date'}
+                                                <div style={{ fontWeight: 800, color: '#1e293b', fontSize: '1.05rem', marginBottom: '8px', letterSpacing: '-0.01em' }}>{task.title}</div>
+                                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '0.8rem', fontWeight: 700 }}>
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                                        {task.deadline ? new Date(task.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No specific date'}
                                                     </div>
-                                                    <div style={{ color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 700 }}>•</div>
-                                                    <div style={{ color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 800 }}>{task.assignedTo?.name || 'Unassigned'}</div>
+                                                    <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#cbd5e1' }}></div>
+                                                    <div style={{ color: '#0f172a', fontSize: '0.8rem', fontWeight: 800 }}>{task.assignedTo?.name || 'Unassigned'}</div>
                                                 </div>
                                             </div>
                                             <div style={{
-                                                padding: '6px 14px', borderRadius: '10px', background: task.status === 'COMPLETED' ? '#10B98120' : '#F59E0B20',
-                                                color: task.status === 'COMPLETED' ? '#10B981' : '#F59E0B', fontSize: '0.7rem', fontWeight: 900, textTransform: 'uppercase'
+                                                padding: '0.35rem 0.85rem', borderRadius: '99px',
+                                                background: isCompleted ? '#ecfdf5' : '#fff7ed', border: `1px solid ${isCompleted ? '#d1fae5' : '#ffedd5'}`,
+                                                color: isCompleted ? '#059669' : '#d97706', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.05em'
                                             }}>
-                                                {task.status}
+                                                {task.status.replace('_', ' ')}
                                             </div>
                                         </div>
-                                    ))}
+                                    )})}
                                 </div>
                             )}
                         </div>
-                        <div style={{ padding: '1.25rem 2rem', borderTop: '1px solid var(--border-color)', background: 'var(--bg-surface)', textAlign: 'right' }}>
+                        <div style={{ padding: '1.25rem 2rem', borderTop: '1px solid #f1f5f9', background: '#ffffff', display: 'flex', justifyContent: 'flex-end' }}>
                             <button onClick={() => setShowModal(false)} style={{
-                                padding: '0.6rem 1.5rem', background: 'var(--primary)', color: 'white', border: 'none',
-                                borderRadius: '12px', fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px var(--primary-glow)'
-                            }}>Dismiss</button>
+                                padding: '0.7rem 1.75rem', background: '#0f172a', color: 'white', border: 'none',
+                                borderRadius: '99px', fontSize: '0.9rem', fontWeight: 800, cursor: 'pointer', 
+                                boxShadow: '0 4px 12px rgba(15, 23, 42, 0.2)', transition: 'all 0.2s', letterSpacing: '0.02em'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(15, 23, 42, 0.3)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(15, 23, 42, 0.2)'; }}
+                            >Close Window</button>
                         </div>
                     </div>
                 </div>
