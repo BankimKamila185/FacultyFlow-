@@ -11,5 +11,6 @@ router.get('/productivity',      authenticate, authorize('analytics:read:departm
 router.get('/trends',            authenticate, authorize('analytics:read:own', 'analytics:read:department', 'analytics:read:all'), AnalyticsController.getTaskTrends);
 router.get('/compliance',        authenticate, authorize('analytics:read:own', 'analytics:read:department', 'analytics:read:all'), AnalyticsController.getDeadlineCompliance);
 router.get('/workflows',         authenticate, authorize('analytics:read:own', 'analytics:read:department', 'analytics:read:all'), AnalyticsController.getWorkflowBreakdown);
+router.get('/departments',       authenticate, authorize('analytics:read:department', 'analytics:read:all'), AnalyticsController.getDepartmentSummaries);
 
 export default router;

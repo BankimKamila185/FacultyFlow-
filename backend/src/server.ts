@@ -47,6 +47,7 @@ export async function createApp() {
     app.use(cookieParser());
     app.use(express.json());
     app.use(morgan('dev'));
+    app.use(express.static('public')); // Serve static assets (logo, etc.)
 
     setupSwagger(app);
 
@@ -79,6 +80,20 @@ export async function createApp() {
         res.status(200).json({ status: 'OK' });
     });
 
+    // ─── Email Preview (dev only) ──────────────────────────────────────────────
+    // http://localhost:4000/preview-email?type=assigned|overdue|nudge|morning|urgent
+    app.get('/preview-email', async (req: Request, res: Response) => {
+        try {
+            const type = (req.query.type as string) || 'assigned';
+            const { buildEmailPreviewHtml } = await import('./services/MailService');
+            const html = buildEmailPreviewHtml(type);
+            res.setHeader('Content-Type', 'text/html');
+            res.send(html);
+        } catch (err: any) {
+            res.status(500).send(`Preview error: ${err.message}`);
+        }
+    });
+
     app.use(errorHandler);
 
     return app;
@@ -93,11 +108,10 @@ export async function startServer() {
         
         EmailScheduler.start();
         
-        if (config.REDIS_URL !== 'internal') {
-            import('./jobs/worker').then(({ setupCronJobs }) => {
-                setupCronJobs();
-            }).catch(e => logger.error('Failed to init cron jobs', e));
-        }
+        // Initialize background worker/crons
+        import('./jobs/worker').then(({ initWorker }) => {
+            initWorker();
+        }).catch(e => logger.error('Failed to init background worker', e));
     });
 
     return server;

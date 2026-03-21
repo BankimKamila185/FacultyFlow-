@@ -99,6 +99,18 @@ export class LocalDataService {
 
                     const parseDate = (dStr: string) => {
                         if (!dStr || dStr.includes('#VALUE!') || dStr.trim() === '' || typeof dStr !== 'string') return null;
+                        
+                        const normalized = dStr.toLowerCase();
+                        if (normalized.includes('every saturday') || normalized.includes('weekly check')) {
+                            const now = new Date();
+                            const result = new Date(now);
+                            result.setHours(23, 59, 59, 999);
+                            const day = result.getDay();
+                            const daysUntilSaturday = (6 - day + 7) % 7;
+                            result.setDate(result.getDate() + daysUntilSaturday);
+                            return result.toISOString();
+                        }
+
                         const d = new Date(dStr);
                         return isNaN(d.getTime()) ? null : d.toISOString();
                     };
@@ -108,7 +120,10 @@ export class LocalDataService {
                         title: title.trim(),
                         sprintName: currentSprintName,
                         subEvent: currentSubEvent,
-                        status: (r['Status'] || 'PENDING').trim().toUpperCase(),
+                        status: (() => {
+                            const s = (r['Status'] || 'PENDING').trim().toUpperCase();
+                            return s === 'STARTED' ? 'IN_PROGRESS' : s;
+                        })(),
                         assignedToEmail: emails[0] || 'system@university.edu',
                         allResponsibles: emails,
                         department: (r['To Do Responsible team'] || '').trim(),

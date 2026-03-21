@@ -1,28 +1,59 @@
 import { FirestoreService } from './FirestoreService';
-import { GmailIntegration } from '../integrations/gmail';
+import { sendRaw } from './MailService';
 
 export class EmailScheduler {
+    private static lastMorningTrigger: string | null = null;
+    private static lastAfternoonTrigger: string | null = null;
+    private static lastEveningTrigger: string | null = null;
+
     static start() {
         console.log('--- Email Scheduler Initialization ---');
         
-        // Initial check and then start interval
+        // Initial check for scheduled emails
         this.processPendingEmails()
-            .then(async () => {
+            .then(() => {
                 console.log('[Scheduler] Initial check completed. Starting interval...');
-                setInterval(() => this.processPendingEmails(), 300000); // 5 minutes
-
-                // Run pending task reminders every 24 hours
-                const { ReminderService } = await import('./ReminderService');
-                ReminderService.sendPendingTaskReminders();
-                setInterval(() => ReminderService.sendPendingTaskReminders(), 24 * 60 * 60 * 1000);
+                // Run every minute for precise time triggers
+                setInterval(() => this.tick(), 60000);
             })
-            .catch(async (err) => {
+            .catch((err) => {
                 console.error('[Scheduler] Initialization failed:', err.message);
-                setInterval(() => this.processPendingEmails(), 300000);
-
-                const { ReminderService } = await import('./ReminderService');
-                setInterval(() => ReminderService.sendPendingTaskReminders(), 24 * 60 * 60 * 1000);
+                setInterval(() => this.tick(), 60000);
             });
+    }
+
+    private static async tick() {
+        const now = new Date();
+        const hour = now.getHours();
+        const minute = now.getMinutes();
+        const dateStr = now.toISOString().split('T')[0];
+
+        // 1. Process ad-hoc scheduled emails (every tick is fine)
+        await this.processPendingEmails();
+
+        // 2. 10:00 AM - Morning Reminders + Deadline Check
+        if (hour === 10 && minute === 0 && this.lastMorningTrigger !== dateStr) {
+            this.lastMorningTrigger = dateStr;
+            const { ReminderService } = await import('./ReminderService');
+            console.log('[Scheduler] Triggering Morning Reminders (10 AM)');
+            ReminderService.sendMorningReminders().catch(console.error);
+        }
+
+        // 3. 02:00 PM - Afternoon Follow-up
+        if (hour === 14 && minute === 0 && this.lastAfternoonTrigger !== dateStr) {
+            this.lastAfternoonTrigger = dateStr;
+            const { ReminderService } = await import('./ReminderService');
+            console.log('[Scheduler] Triggering Afternoon Reminders (2 PM)');
+            ReminderService.sendAfternoonReminders().catch(console.error);
+        }
+
+        // 4. 06:00 PM - End of Day Report
+        if (hour === 18 && minute === 0 && this.lastEveningTrigger !== dateStr) {
+            this.lastEveningTrigger = dateStr;
+            const { ReminderService } = await import('./ReminderService');
+            console.log('[Scheduler] Triggering End of Day Report (6 PM)');
+            ReminderService.sendEndOfDayReport().catch(console.error);
+        }
     }
 
     private static async processPendingEmails() {
@@ -32,7 +63,6 @@ export class EmailScheduler {
             ]);
 
             const now = new Date();
-            // Filter locally for scheduledAt <= now since firestore query might need specific timestamp format
             const pending = emails.filter((e: any) => {
                 const scheduledAt = e.scheduledAt?.toDate ? e.scheduledAt.toDate() : new Date(e.scheduledAt);
                 return scheduledAt <= now;
@@ -45,11 +75,9 @@ export class EmailScheduler {
             for (const email of pending) {
                 try {
                     for (const to of email.toEmails) {
-                        await GmailIntegration.sendEmail(email.fromEmail, to, email.subject, email.body);
+                        await sendRaw(to, email.subject, email.body, email.fromEmail);
                     }
-                    
                     await FirestoreService.updateDoc('scheduledEmails', email.id, { status: 'SENT' });
-                    console.log(`[Scheduler] Successfully sent email ID: ${email.id}`);
                 } catch (err: any) {
                     console.error(`[Scheduler] Failed to send email ID: ${email.id}`, err);
                     await FirestoreService.updateDoc('scheduledEmails', email.id, { 

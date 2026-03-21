@@ -1,5 +1,5 @@
 import { FirestoreService } from '../services/FirestoreService';
-import { GmailIntegration } from '../integrations/gmail';
+import { sendRaw } from '../services/MailService';
 import winston from 'winston';
 
 const logger = winston.createLogger({
@@ -32,8 +32,7 @@ export class NotificationService {
                 }
 
                 // Sending to themselves for now, as we need an authenticated sender's token
-                await GmailIntegration.sendEmail(
-                    user.email, // Sender (needs OAuth token)
+                await sendRaw(
                     user.email, // Recipient
                     subject,
                     message

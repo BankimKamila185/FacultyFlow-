@@ -26,7 +26,7 @@ export const updateSheetUrl = async (req: Request, res: Response): Promise<void>
 export const syncGoogleSheetsData = async (req: Request, res: Response): Promise<void> => {
     try {
         const userEmail = (req as any).user?.email;
-        const { preview } = req.body;
+        const { preview, shouldNotify = false } = req.body || {};
 
         if (!userEmail) {
             res.status(401).json({ success: false, message: 'Unauthorized' });
@@ -142,15 +142,35 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
             
             if (status !== 'COMPLETED' && title.toLowerCase().includes('review')) status = 'IN_REVIEW';
 
-            let startDate: Date | null = null;
-            if (startDateStr) {
-                const d = new Date(startDateStr);
-                if (!isNaN(d.getTime())) startDate = d;
-            }
-            let deadline: Date | null = null;
-            if (endDateStr) {
-                const d = new Date(endDateStr);
-                if (!isNaN(d.getTime())) deadline = d;
+            const getNextSaturday = (now: Date) => {
+                const result = new Date(now);
+                result.setHours(23, 59, 59, 999);
+                const day = result.getDay(); // 0 (Sun) to 6 (Sat)
+                const daysUntilSaturday = (6 - day + 7) % 7;
+                result.setDate(result.getDate() + daysUntilSaturday);
+                return result;
+            };
+
+            const parseRecurringDate = (dateStr: string | null, now: Date) => {
+                if (!dateStr) return null;
+                const normalized = dateStr.toLowerCase();
+                if (normalized.includes('every saturday') || normalized.includes('weekly check')) {
+                    return getNextSaturday(now);
+                }
+                const d = new Date(dateStr);
+                return isNaN(d.getTime()) ? null : d;
+            };
+
+            const nowForSync = new Date();
+            let startDate: Date | null = parseRecurringDate(startDateStr, nowForSync);
+            
+            let deadline: Date | null = parseRecurringDate(endDateStr, nowForSync);
+            if (deadline && !endDateStr.toLowerCase().includes('saturday')) {
+                 // Regular date clamping logic
+                 if (deadline < nowForSync && status !== 'COMPLETED') {
+                    deadline = nowForSync;
+                    console.log(`[Sync] Clamping past deadline to today for task: ${title}`);
+                 }
             }
             let taskCompletionDate: Date | null = null;
             if (taskCompletionDateStr) {
@@ -251,6 +271,26 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
                     userId: primaryUser.id,
                     isRead: false
                 });
+
+                // Send Assignment Email
+                if (shouldNotify) {
+                    try {
+                        const { sendTaskAssignedEmail } = await import('../services/MailService');
+                        await sendTaskAssignedEmail({
+                            toEmail: primaryUser.email,
+                            toName: primaryUser.name || 'Faculty Member',
+                            taskTitle: title.trim(),
+                            taskId: newTask.id,
+                            sprintName: currentSprintName,
+                            subEvent: subEvent,
+                            deadline: deadline,
+                            responsibleTeam: responsibleTeam
+                        });
+                    } catch (emailErr) {
+                        console.error('Failed to send assignment email during sync:', emailErr);
+                    }
+                }
+
                 notificationsCreated++;
             }
 
@@ -382,6 +422,31 @@ export const syncGoogleSheetsData = async (req: Request, res: Response): Promise
 
     } catch (error: any) {
         console.error('Sync error:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+import { ReminderService } from '../services/ReminderService';
+
+export const sendReminders = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userEmail = (req as any).user?.email;
+        if (!userEmail) {
+            res.status(401).json({ success: false, message: 'Unauthorized' });
+            return;
+        }
+
+        console.log(`[SyncController] Manual reminder trigger by ${userEmail}`);
+        
+        // Trigger the background process
+        ReminderService.sendPendingTaskReminders();
+
+        res.json({ 
+            success: true, 
+            message: 'Bulk reminder process started in the background. Check terminal for logs.' 
+        });
+    } catch (error: any) {
+        console.error('Manual reminder error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

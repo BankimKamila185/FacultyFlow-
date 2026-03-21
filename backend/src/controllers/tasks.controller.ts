@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { FirestoreService } from '../services/FirestoreService';
-import { Task } from '../services/TaskService';
+import { Task, TaskService } from '../services/TaskService';
 
 /**
  * GET /api/tasks/my
@@ -213,13 +213,40 @@ export const updateTaskStatus = async (req: Request, res: Response): Promise<voi
 };
 
 /**
+ * GET /api/tasks/:id/quick-action
+ * Allows completing a task directly from an email link without needing to log in.
+ */
+export const quickAction = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const { action } = req.query;
+
+        if (action === 'complete') {
+            await FirestoreService.updateDoc('tasks', id, {
+                status: 'COMPLETED',
+                updatedAt: new Date()
+            });
+
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+            res.redirect(`${frontendUrl}/tasks?success=Task+marked+as+completed!`);
+            return;
+        }
+
+        res.status(400).send('Invalid quick action');
+    } catch (error: any) {
+        console.error('Error in quickAction:', error);
+        res.status(500).send('An error occurred while processing your request.');
+    }
+};
+
+/**
  * POST /api/tasks/:id/ask-reason
  */
 export const askReason = async (req: Request, res: Response): Promise<void> => {
     try {
         const currentUser = (req as any).user;
-        if (currentUser?.role !== 'ADMIN' && currentUser?.role !== 'HOD') {
-            res.status(403).json({ success: false, message: 'Forbidden: Admin access required.' });
+        if (currentUser?.role?.toUpperCase() !== 'OPS_MANAGER') {
+            res.status(403).json({ success: false, message: 'Forbidden: Ops Manager access required.' });
             return;
         }
 
@@ -237,7 +264,19 @@ export const askReason = async (req: Request, res: Response): Promise<void> => {
             message: `Admin requested a reason for the delay on task: "${task.title}". Please add a remark.`
         });
 
-        res.json({ success: true, message: 'Reason request sent successfully' });
+        const assignedUser = await FirestoreService.getDoc<any>('users', task.assignedToId);
+        if (assignedUser?.email) {
+            import('../services/MailService').then((MailService) => {
+                MailService.sendNudgeEmail({
+                    toEmail: assignedUser.email,
+                    toName: assignedUser.name || 'User',
+                    taskTitle: task.title,
+                    fromName: currentUser?.name || 'Admin/Ops Team'
+                }).catch(err => console.error('Failed to send nudge email in background', err));
+            });
+        }
+
+        res.json({ success: true, message: 'Reason request and email sent successfully' });
     } catch (error: any) {
         console.error('Error asking for reason:', error);
         res.status(500).json({ success: false, message: error.message });
@@ -247,8 +286,8 @@ export const askReason = async (req: Request, res: Response): Promise<void> => {
 export const batchAskReason = async (req: Request, res: Response): Promise<void> => {
     try {
         const currentUser = (req as any).user;
-        if (currentUser?.role !== 'ADMIN' && currentUser?.role !== 'HOD') {
-            res.status(403).json({ success: false, message: 'Forbidden: Admin access required.' });
+        if (currentUser?.role?.toUpperCase() !== 'OPS_MANAGER') {
+            res.status(403).json({ success: false, message: 'Forbidden: Ops Manager access required.' });
             return;
         }
 
@@ -270,6 +309,83 @@ export const batchAskReason = async (req: Request, res: Response): Promise<void>
         res.json({ success: true, message: `Successfully nudged ${overdueTasks.length} tasks.` });
     } catch (error: any) {
         console.error('Error in batch nudge:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * POST /api/tasks
+ */
+export const createTask = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const currentUser = (req as any).user;
+        if (currentUser?.role?.toUpperCase() !== 'OPS_MANAGER') {
+            res.status(403).json({ success: false, message: 'Forbidden: Ops Manager access required.' });
+            return;
+        }
+
+        const { title, description, deadline, assignedToIds, workflowId } = req.body;
+
+        if (!title || !assignedToIds || !Array.isArray(assignedToIds) || assignedToIds.length === 0) {
+            res.status(400).json({ success: false, message: 'Title and at least one assignedToId are required.' });
+            return;
+        }
+
+        const taskData = {
+            title,
+            description,
+            deadline: deadline ? new Date(deadline) : undefined,
+            assignedToIds,
+            createdById: currentUser.id,
+            workflowId
+        };
+
+        const task = await TaskService.createTask(taskData);
+
+        res.status(201).json({ success: true, data: task, message: 'Task created successfully' });
+    } catch (error: any) {
+        console.error('Error creating task:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/**
+ * PATCH /api/tasks/:id
+ */
+export const updateTask = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const currentUser = (req as any).user;
+        const { id } = req.params;
+        const updates = req.body;
+
+        const currentTask = await FirestoreService.getDoc<Task>('tasks', id);
+        if (!currentTask) {
+            res.status(404).json({ success: false, message: 'Task not found' });
+            return;
+        }
+
+        // Check if user is authorized (ONLY Ops Manager can update)
+        const isOpsManager = currentUser?.role?.toUpperCase() === 'OPS_MANAGER';
+
+        if (!isOpsManager) {
+            res.status(403).json({ success: false, message: 'Forbidden: Ops Manager access required.' });
+            return;
+        }
+
+        const updatedTask = await FirestoreService.updateDoc<Task>('tasks', id, {
+            ...updates,
+            ...(updates.deadline && { deadline: new Date(updates.deadline) }),
+            updatedAt: new Date()
+        });
+
+        // Trigger notification if assignedToIds was changed
+        if (updates.assignedToIds && Array.isArray(updates.assignedToIds)) {
+            await TaskService.assignTask(id, updates.assignedToIds);
+        }
+
+        res.json({ success: true, data: updatedTask, message: 'Task updated successfully' });
+    } catch (error: any) {
+        console.error('Error updating task:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 };

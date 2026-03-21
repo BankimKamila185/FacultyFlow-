@@ -1,36 +1,104 @@
 import { FirestoreService } from './FirestoreService';
 
 export class AnalyticsService {
-    static async getDashboardMetrics(filter?: { userId?: string, email?: string }) {
+    static async getDashboardMetrics(filter?: { userId?: string, email?: string, department?: string }) {
         try {
-            // OPTIMIZED: 1 query instead of 6 separate count() calls
-            const constraints: any[] = [];
-            if (filter?.userId) {
-                constraints.push({ field: 'assignedToId', operator: '==', value: filter.userId });
-            }
-            // Note: responsibleEmail field is not indexed on tasks — use assignedToId path only
-            // If you need email-based filtering, pre-resolve userId first in the controller
-
-            const [tasks, activeWorkflows] = await Promise.all([
-                FirestoreService.query('tasks', constraints),
+            const [allTasks, activeWorkflows] = await Promise.all([
+                FirestoreService.getCollection('tasks'),
                 FirestoreService.count('workflows', [{ field: 'status', operator: '==', value: 'ACTIVE' }]),
             ]);
 
-            // Group by status in memory — zero extra Firestore reads
+            const tasks = allTasks as any[];
+            let filteredTasks = tasks;
+
+            if (filter?.userId || filter?.email) {
+                const userId = filter.userId;
+                const userEmail = filter.email?.toLowerCase();
+
+                // Fetch task ids where the user is listed in taskResponsibles
+                const myResponsibles = userEmail 
+                    ? await FirestoreService.query('taskResponsibles', [{ field: 'email', operator: '==', value: userEmail }])
+                    : [];
+                const taskIdsFromResponsibles = myResponsibles.map((tr: any) => tr.taskId);
+
+                filteredTasks = tasks.filter(t => 
+                    t.assignedToId === userId || 
+                    (userEmail && t.assignedToEmail?.toLowerCase() === userEmail) ||
+                    taskIdsFromResponsibles.includes(t.id)
+                );
+            } else if (filter?.department) {
+                // Determine which emails belong to this department
+                const departments = await FirestoreService.getCollection('departments') as any[];
+                const department = departments.find(d => d.name === filter.department);
+                
+                if (department) {
+                    const deptEmails = (department.emails || '').split(',').map((e: string) => e.trim().toLowerCase());
+                    filteredTasks = tasks.filter(t => {
+                        const assignedEmail = t.assignedToEmail?.toLowerCase();
+                        const responsibleEmail = t.responsibleEmail?.toLowerCase();
+                        return deptEmails.includes(assignedEmail) || deptEmails.includes(responsibleEmail);
+                    });
+                }
+            }
+
+            const now = new Date();
+            const getWeekWindow = (d: Date) => {
+                const now = new Date(d);
+                const day = now.getDay();
+                const monday = new Date(now);
+                monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+                monday.setHours(0, 0, 0, 0);
+
+                const sunday = new Date(monday);
+                sunday.setDate(monday.getDate() + 6);
+                sunday.setHours(23, 59, 59, 999);
+                return { monday, sunday };
+            };
+            const { monday, sunday } = getWeekWindow(now);
+
+            // Visibility: ALL PENDING/OVERDUE up to Sunday (Global Backlog)
+            filteredTasks = filteredTasks.filter(t => {
+                const deadline = t.deadline?.toDate ? t.deadline.toDate() : (t.deadline ? new Date(t.deadline) : null);
+                return deadline && deadline <= sunday;
+            });
             const counts = { pending: 0, inProgress: 0, inReview: 0, completed: 0, overdue: 0 };
-            for (const t of (tasks as any[])) {
-                switch (t.status) {
-                    case 'PENDING':     counts.pending++;     break;
-                    case 'IN_PROGRESS': counts.inProgress++;  break;
-                    case 'IN_REVIEW':   counts.inReview++;    break;
-                    case 'COMPLETED':   counts.completed++;   break;
-                    case 'OVERDUE':     counts.overdue++;     break;
+            
+            for (const t of filteredTasks) {
+                const status = (t.status || '').toUpperCase();
+                const deadline = t.deadline?.toDate ? t.deadline.toDate() : (t.deadline ? new Date(t.deadline) : null);
+                const isOverdue = status !== 'COMPLETED' && deadline && deadline < now;
+
+                if (isOverdue) {
+                    counts.overdue++;
+                } else {
+                    switch (status) {
+                        case 'PENDING':     
+                            counts.pending++;
+                            break;
+                        case 'STARTED':
+                        case 'IN_PROGRESS': 
+                            counts.inProgress++;  
+                            break;
+                        case 'IN_REVIEW':   
+                            counts.inReview++;    
+                            break;
+                        case 'COMPLETED':   
+                            counts.completed++;   
+                            break;
+                        case 'OVERDUE':
+                            counts.overdue++;
+                            break;
+                        default:
+                            // Deep fix: If any other status exists and not COMPLETED/OVERDUE, count as pending
+                            if (status) counts.pending++;
+                            break;
+                    }
                 }
             }
 
             return {
                 tasks: {
-                    total: tasks.length,
+                    total: counts.pending + counts.inProgress + counts.inReview + counts.completed + counts.overdue,
                     ...counts,
                     delayed: counts.overdue,
                 },
@@ -151,6 +219,122 @@ export class AnalyticsService {
             sprintName: wf.sprintName,
             status: wf.status,
             taskCount: workflowTaskMap[wf.id] || 0
+        }));
+    }
+
+    static async getDepartmentSummaries() {
+        const now = new Date();
+        const [departments, users, tasks] = await Promise.all([
+            FirestoreService.getCollection('departments'),
+            FirestoreService.getCollection('users'),
+            FirestoreService.getCollection('tasks')
+        ]);
+
+        const deptMap = new Map<string, any>();
+        
+        // Initialize map with departments from departments.csv
+        departments.forEach((dept: any) => {
+            deptMap.set(dept.name.toLowerCase(), {
+                name: dept.name,
+                headEmail: dept.headEmail,
+                facultyCount: 0,
+                tasks: [],
+                stats: { total: 0, completed: 0, pending: 0, overdue: 0, inProgress: 0, workloadDays: 0 }
+            });
+        });
+
+        // Add "Other" department if not exists
+        if (!deptMap.has('other')) {
+            deptMap.set('other', { name: 'Other', facultyCount: 0, tasks: [], stats: { total: 0, completed: 0, pending: 0, overdue: 0, inProgress: 0, workloadDays: 0 } });
+        }
+
+        // Count faculty per department
+        const emailToDept = new Map<string, string>();
+        users.forEach((user: any) => {
+            const userDept = (user.department || 'Other').toLowerCase();
+            const deptObj = deptMap.get(userDept) || deptMap.get('other');
+            if (deptObj) {
+                deptObj.facultyCount++;
+                emailToDept.set(user.email.toLowerCase(), deptObj.name.toLowerCase());
+            }
+        });
+
+        const getWeekWindow = (d: Date) => {
+            const now = new Date(d);
+            const day = now.getDay();
+            const mon = new Date(now);
+            mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+            mon.setHours(0, 0, 0, 0);
+
+            const sun = new Date(mon);
+            sun.setDate(mon.getDate() + 6);
+            sun.setHours(23, 59, 59, 999);
+            return { monday: mon, sunday: sun };
+        };
+        const { monday, sunday } = getWeekWindow(now);
+
+        // Link tasks to departments via assignees or responsibles
+        // Visibility: ALL PENDING/OVERDUE up to Sunday (Global Backlog)
+        tasks.filter((task: any) => {
+            const deadline = task.deadline?.toDate ? task.deadline.toDate() : (task.deadline ? new Date(task.deadline) : null);
+            return deadline && deadline <= sunday;
+        }).forEach((task: any) => {
+            const taskDeptName = (task.department || '').split('+')[0].split('/')[0].trim().toLowerCase();
+            let targetDept = deptMap.get(taskDeptName);
+
+            if (!targetDept) {
+                // Fallback: Check if any responsible person's department matches
+                const responsibles = task.allResponsibles || [];
+                for (const email of responsibles) {
+                    const mappedDept = emailToDept.get(email.toLowerCase());
+                    if (mappedDept) {
+                        targetDept = deptMap.get(mappedDept);
+                        break;
+                    }
+                }
+            }
+
+            if (!targetDept) targetDept = deptMap.get('other');
+
+            const s = targetDept.stats;
+            const status = (task.status || '').toUpperCase();
+            const deadline = task.deadline?.toDate ? task.deadline.toDate() : (task.deadline ? new Date(task.deadline) : null);
+            const isOverdue = status !== 'COMPLETED' && deadline && deadline < now;
+            
+            s.total++;
+            if (isOverdue) {
+                s.overdue++;
+                s.pending++; 
+            } else {
+                if (status === 'COMPLETED') s.completed++;
+                else if (status === 'STARTED' || status === 'IN_PROGRESS' || status === 'IN_REVIEW') s.inProgress++;
+                else if (status === 'OVERDUE') {
+                    s.overdue++;
+                    s.pending++;
+                } else {
+                    // Default to pending for any other status
+                    s.pending++;
+                }
+            }
+            
+            // Workload calculation: ONLY count unfinished tasks (Pending, In Progress, In Review)
+            if (status !== 'COMPLETED') {
+                s.workloadDays += 1; 
+            }
+
+            // Add basic task info for modal view
+            targetDept.tasks.push({
+                id: task.id,
+                title: task.title,
+                status: task.status,
+                deadline: task.deadline,
+                assignedToEmail: task.assignedToEmail
+            });
+        });
+
+        return Array.from(deptMap.values()).map(d => ({
+            ...d,
+            completionRate: d.stats.total > 0 ? Math.round((d.stats.completed / d.stats.total) * 100) : 0
         }));
     }
 }

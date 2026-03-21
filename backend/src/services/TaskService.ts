@@ -31,32 +31,57 @@ export class TaskService {
         title: string;
         description?: string;
         deadline?: Date;
-        assignedToId: string;
+        assignedToIds: string[];
         createdById: string;
         workflowId?: string;
     }): Promise<Task> {
+        const { assignedToIds, ...rest } = data;
         const task = await FirestoreService.createDoc<Task>('tasks', {
-            ...data,
+            ...rest,
+            assignedToId: assignedToIds[0] || '', // Primary assignee for legacy support
             status: 'PENDING',
             priority: 'MEDIUM',
             escalationLevel: 0,
         });
 
-        const assignedUser = await FirestoreService.getDoc('users', data.assignedToId);
-        if (assignedUser) {
-            // Trigger Notification
-            const msg = `You have been assigned a new task: ${task.title}. ${task.deadline ? `Deadline: ${task.deadline.toLocaleDateString()}` : ''}`;
-            NotificationService.sendNotification(assignedUser.id, msg, 'TASK_ASSIGNED').catch(err => {
-                console.error('Failed to send task assignment notification', err);
-            });
-
-            if (assignedUser.googleAccessToken && task.deadline) {
-                // Call async context without blocking response
-                GoogleCalendarService.createEventForTask(assignedUser, task as any).catch(err => {
-                    console.error('Failed to sync google calendar event in background', err);
+        // 1. Create taskResponsibles entries for all assignees
+        await Promise.all(assignedToIds.map(async (userId) => {
+            const user = await FirestoreService.getDoc<any>('users', userId);
+            if (user) {
+                await FirestoreService.createDoc('taskResponsibles', {
+                    taskId: task.id,
+                    email: user.email?.toLowerCase(),
+                    role: 'RESPONSIBLE',
+                    userId: user.id
                 });
+
+                // 2. Trigger Notification
+                const msg = `You have been assigned a new task: ${task.title}. ${task.deadline ? `Deadline: ${task.deadline.toLocaleDateString()}` : ''}`;
+                NotificationService.sendNotification(user.id, msg, 'TASK_ASSIGNED').catch(err => {
+                    console.error('Failed to send task assignment notification', err);
+                });
+
+                if (user.googleAccessToken && task.deadline) {
+                    GoogleCalendarService.createEventForTask(user, task as any).catch(err => {
+                        console.error('Failed to sync google calendar event in background', err);
+                    });
+                }
+
+                // 3. Trigger Email
+                if (user.email) {
+                    import('./MailService').then((MailService) => {
+                        MailService.sendTaskAssignedEmail({
+                            toEmail: user.email,
+                            toName: user.name || 'User',
+                            taskTitle: task.title,
+                            taskId: task.id,
+                            deadline: task.deadline,
+                            responsibleTeam: task.department
+                        }).catch(err => console.error('Failed to send assignment email in background', err));
+                    });
+                }
             }
-        }
+        }));
 
         return task;
     }
@@ -97,16 +122,30 @@ export class TaskService {
         return FirestoreService.updateDoc<Task>('tasks', taskId, { status });
     }
 
-    static async assignTask(taskId: string, assignedToId: string): Promise<Task> {
-        const task = await FirestoreService.updateDoc<Task>('tasks', taskId, { assignedToId });
+    static async assignTask(taskId: string, assignedToIds: string[]): Promise<Task> {
+        // Update primary assignee
+        const task = await FirestoreService.updateDoc<Task>('tasks', taskId, { assignedToId: assignedToIds[0] || '' });
 
-        const assignedUser = await FirestoreService.getDoc('users', assignedToId);
-        if (assignedUser) {
-            const msg = `A task has been reassigned to you: ${task.title}.`;
-            NotificationService.sendNotification(assignedUser.id, msg, 'TASK_ASSIGNED').catch(err => {
-                console.error('Failed to send task reassignment notification', err);
-            });
-        }
+        // Clear existing responsibles and add new ones
+        const existing = await FirestoreService.query('taskResponsibles', [{ field: 'taskId', operator: '==', value: taskId }]);
+        await Promise.all(existing.map(e => FirestoreService.deleteDoc('taskResponsibles', e.id)));
+
+        await Promise.all(assignedToIds.map(async (userId) => {
+            const user = await FirestoreService.getDoc<any>('users', userId);
+            if (user) {
+                await FirestoreService.createDoc('taskResponsibles', {
+                    taskId,
+                    email: user.email?.toLowerCase(),
+                    role: 'RESPONSIBLE',
+                    userId: user.id
+                });
+
+                const msg = `A task has been reassigned to you: ${task.title}.`;
+                NotificationService.sendNotification(user.id, msg, 'TASK_ASSIGNED').catch(err => {
+                    console.error('Failed to send task reassignment notification', err);
+                });
+            }
+        }));
 
         return task;
     }

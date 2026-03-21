@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AnalyticsService } from '../services/AnalyticsService';
-import { GmailIntegration } from '../integrations/gmail';
+import { sendRaw } from '../services/MailService';
 import { DriveIntegration } from '../integrations/drive';
 import { SheetsIntegration } from '../integrations/sheets';
 import { FirestoreService } from '../services/FirestoreService';
@@ -9,7 +9,7 @@ import fetch from 'node-fetch';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-async function callGemini(prompt: string): Promise<string> {
+export async function callGemini(prompt: string): Promise<string> {
     if (!GEMINI_API_KEY) return '';
     const body = {
         contents: [{ parts: [{ text: prompt }] }],
@@ -136,7 +136,7 @@ export class AIController {
             }
 
             for (const to of recipients) {
-                await GmailIntegration.sendEmail(userToken.email, to, subject, body);
+                await sendRaw(to, subject, body, userToken.email);
             }
             res.status(200).json({ success: true, message: `Sent to ${recipients.length} recipient(s).` });
         } catch (error) { next(error); }

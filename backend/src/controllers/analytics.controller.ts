@@ -11,24 +11,36 @@ export class AnalyticsController {
             
             let filterEmail = user.email;
             let filterUserId = user.id;
+            let filterDept = user.department;
 
-            const isAdminRole = ['ADMIN', 'HOD', 'OPS_MANAGER'].includes(user?.role?.toUpperCase());
+            const userRole = user?.role?.toUpperCase();
+            const isAdmin = userRole === 'ADMIN';
+            const isManager = ['HOD', 'OPS_MANAGER'].includes(userRole);
             const requestedEmail = req.query.email as string;
 
-            if (isAdminRole) {
+            const filter: any = {};
+
+            if (isAdmin) {
                 if (requestedEmail) {
-                    filterEmail = requestedEmail.toLowerCase();
-                    filterUserId = undefined; 
+                    filter.email = requestedEmail.toLowerCase();
                 } else {
-                    filterEmail = undefined;
-                    filterUserId = undefined;
+                    // System-wide for Admin if no email requested
                 }
+            } else if (isManager) {
+                if (requestedEmail) {
+                    filter.email = requestedEmail.toLowerCase();
+                    filter.userId = undefined;
+                } else {
+                    // Filter by department for HOD/Ops if no specific email requested
+                    filter.department = filterDept;
+                }
+            } else {
+                // FACULTY: filter by their own identity
+                filter.userId = filterUserId;
+                filter.email = filterEmail;
             }
 
-            // Filter for personalized metrics based on current user, or system-wide for admins
-            const filter = { userId: filterUserId, email: filterEmail };
-            
-            console.log(`[Analytics] Fetching live metrics for: ${user?.email}`);
+            console.log(`[Analytics] Fetching dashboard metrics for: ${user?.email} (Role: ${userRole})`);
             const metrics = await AnalyticsService.getDashboardMetrics(filter);
             res.status(200).json({ success: true, data: metrics });
         } catch (error) {
@@ -75,6 +87,15 @@ export class AnalyticsController {
             const filter = user?.role === 'FACULTY' ? { userId: user.id, email: user.email } : undefined;
             const breakdown = await AnalyticsService.getWorkflowBreakdown(filter);
             res.status(200).json({ success: true, data: breakdown });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    static async getDepartmentSummaries(req: Request, res: Response, next: NextFunction) {
+        try {
+            const summaries = await AnalyticsService.getDepartmentSummaries();
+            res.status(200).json({ success: true, data: summaries });
         } catch (error) {
             next(error);
         }
