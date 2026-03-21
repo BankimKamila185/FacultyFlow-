@@ -24,4 +24,34 @@ router.post('/trigger-overdue', authenticate, async (req, res) => {
     }
 });
 
+router.post('/trigger-morning', authenticate, async (req, res) => {
+    try {
+        const { ReminderService } = await import('../services/ReminderService');
+        await ReminderService.sendMorningReminders();
+        res.status(200).json({ status: 'ok', message: 'Morning reminders triggered' });
+    } catch (error: any) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
+router.post('/trigger-afternoon', authenticate, async (req, res) => {
+    try {
+        const { ReminderService } = await import('../services/ReminderService');
+        await ReminderService.sendAfternoonReminders();
+        res.status(200).json({ status: 'ok', message: 'Afternoon reminders triggered' });
+    } catch (error: any) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
+router.post('/trigger-eod', authenticate, async (req, res) => {
+    try {
+        const { ReminderService } = await import('../services/ReminderService');
+        await ReminderService.sendEndOfDayReport();
+        res.status(200).json({ status: 'ok', message: 'EOD report triggered' });
+    } catch (error: any) {
+        res.status(500).json({ status: 'error', message: error.message });
+    }
+});
+
 export default router;

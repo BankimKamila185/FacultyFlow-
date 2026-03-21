@@ -5,6 +5,7 @@ import { FirestoreService } from '../services/FirestoreService';
 import fetch from 'node-fetch';
 import * as MailService from '../services/MailService';
 import { config } from '../config';
+import { ReminderService } from '../services/ReminderService';
 
 const logger = winston.createLogger({
     level: 'info',
@@ -12,12 +13,20 @@ const logger = winston.createLogger({
     transports: [new winston.transports.Console()],
 });
 
-export const workflowQueue = new Queue('workflow-queue', { connection: redis as any });
-export const emailQueue = new Queue('email-queue', { connection: redis as any });
+let workflowQueue: Queue | null = null;
+let emailQueue: Queue | null = null;
+
+if (config.REDIS_URL !== 'internal') {
+    try {
+        workflowQueue = new Queue('workflow-queue', { connection: redis as any });
+        emailQueue = new Queue('email-queue', { connection: redis as any });
+    } catch (e) {
+        logger.error('Failed to initialize BullMQ Queues', e);
+    }
+}
 
 /**
  * The core logic for checking overdue tasks and sending emails/escalations.
- * Refactored out so it can be called by BullMQ or a fallback scheduler.
  */
 export async function runOverdueCheck() {
     const now = new Date();
@@ -28,8 +37,8 @@ export async function runOverdueCheck() {
         const users = await FirestoreService.getCollection('users');
         const departments = await FirestoreService.getCollection('departments');
         
-        const userMap = new Map(users.map((u: any) => [u.id, u]));
-        const deptMap = new Map(departments.map((d: any) => [d.name, d]));
+        const userMap = new Map((users || []).map((u: any) => [u.id, u]));
+        const deptMap = new Map((departments || []).map((d: any) => [d.name, d]));
 
         // 1. Handle Newly Overdue Tasks
         const newlyOverdue = tasks.filter((t: any) => 
@@ -98,113 +107,69 @@ export async function runOverdueCheck() {
                 const hodName = 'Dr. Aarti Pardeshi';
                 
                 if (!hodGroups[hodEmail]) {
-                    hodGroups[hodEmail] = { 
-                        name: hodName, 
-                        email: hodEmail, 
-                        tasks: [] 
-                    };
+                    hodGroups[hodEmail] = { name: hodName, email: hodEmail, tasks: [] };
                 }
                 hodGroups[hodEmail].tasks.push(task);
-                await FirestoreService.updateDoc('tasks', task.id, { escalationLevel: 2 });
+                
+                // Update escalation level in DB
+                await FirestoreService.updateDoc('tasks', task.id, { 
+                    escalationLevel: (task.escalationLevel || 0) + 1,
+                    updatedAt: now
+                });
             }
 
-            // Send Digest Emails to HODs
-            for (const [email, group] of Object.entries(hodGroups)) {
+            // Send Escalation Summaries to Dr. Aarti Pardeshi
+            for (const group of Object.values(hodGroups)) {
                 try {
-                    const digestTasks = group.tasks.map(t => {
-                        const assignee = userMap.get(t.assignedToId);
-                        const deadline = t.deadline?.toDate ? t.deadline.toDate() : (t.deadline ? new Date(t.deadline) : new Date());
-                        const diffDays = Math.ceil((now.getTime() - deadline.getTime()) / (1000 * 60 * 60 * 24));
-                        return {
-                            title: t.title,
-                            assigneeName: assignee?.name || 'Unknown',
-                            daysOverdue: diffDays
-                        };
-                    });
-
                     await MailService.sendEscalationDigestEmail({
-                        hodEmail: email,
+                        hodEmail: group.email,
                         hodName: group.name,
-                        tasks: digestTasks
+                        tasks: group.tasks.map(t => ({
+                            title: t.title,
+                            assigneeName: userMap.get(t.assignedToId)?.name || 'Unknown',
+                            daysOverdue: Math.ceil((now.getTime() - (t.deadline?.toDate ? t.deadline.toDate() : new Date(t.deadline)).getTime()) / (1000 * 60 * 60 * 24))
+                        }))
                     });
-
-                    // Create In-App Notifications for HOD
-                    const hodUser = users.find(u => u.email === email);
-                    if (hodUser) {
-                        await FirestoreService.createDoc('notifications', {
-                            userId: hodUser.id,
-                            message: `[ESCALATION] You have ${digestTasks.length} new critically overdue tasks across your departments.`,
-                            type: 'ALERT',
-                            isRead: false
-                        });
-                    }
                 } catch (mailErr) {
-                    logger.error(`Failed to send escalation digest to ${email}`, mailErr);
+                    logger.error(`Failed to send escalation digest to HOD ${group.email}`, mailErr);
                 }
             }
         }
-        logger.info(`[OverdueCheck] Completed. Processed ${newlyOverdue.length} new overdues and ${tasksToEscalate.length} escalations.`);
-    } catch (err) {
-        logger.error('[OverdueCheck] Fatal error during run:', err);
+    } catch (error) {
+        logger.error('[OverdueCheck] Failed', error);
     }
 }
 
-const workflowWorker = new Worker(
-    'workflow-queue',
-    async (job: Job) => {
-        logger.info(`Processing workflow job ${job.id}`, job.data);
-        
-        if (job.data.action === 'CHECK_OVERDUE') {
-            await runOverdueCheck();
-        }
-        else if (job.data.action === 'SYNC_SHEETS') {
-            logger.info('Running background periodic sheet sync...');
-            try {
-                const res = await fetch('http://localhost:4000/api/sync', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ preview: false, shouldNotify: false })
-                });
-                logger.info(`Periodic sync completed with status: ${res.status}`);
-            } catch (e) {
-                logger.error('Failed to trigger periodic sync', e);
-            }
-        }
-    },
-    { connection: redis as any }
-);
-
-const emailWorker = new Worker(
-    'email-queue',
-    async (job: Job) => {
-        logger.info(`Processing email job ${job.id}: Sending to ${job.data.to}`);
-        const { GmailIntegration } = require('../integrations/gmail');
-        
-        try {
-            await GmailIntegration.sendEmail(
-                job.data.userEmail, 
-                job.data.to,
-                job.data.subject,
-                job.data.bodyText
-            );
-            logger.info(`Email sent successfully to ${job.data.to}`);
-        } catch (error) {
-            logger.error(`Failed to send email to ${job.data.to}:`, error);
-            throw error;
-        }
-    },
-    { connection: redis as any }
-);
+let workersInitialized = false;
 
 export async function setupCronJobs() {
+    if (config.REDIS_URL === 'internal' || !workflowQueue) {
+        logger.info('Skipping BullMQ cron jobs (Running in local/internal mode)');
+        return;
+    }
+
     try {
+        // Overdue & Escalation (11 AM, 3 PM, 5 PM)
         await workflowQueue.add('overdue-checker', { action: 'CHECK_OVERDUE' }, {
             repeat: { pattern: '0 11,15,17 * * *' }
         });
+        // Morning Reminder (10 AM)
+        await workflowQueue.add('morning-reminder', { action: 'CHECK_MORNING' }, {
+            repeat: { pattern: '0 10 * * *' }
+        });
+        // Afternoon Reminder (2 PM)
+        await workflowQueue.add('afternoon-reminder', { action: 'CHECK_AFTERNOON' }, {
+            repeat: { pattern: '0 14 * * *' }
+        });
+        // End of Day Report (6 PM)
+        await workflowQueue.add('eod-report', { action: 'CHECK_EOD' }, {
+            repeat: { pattern: '0 18 * * *' }
+        });
+        // Sheet Syncer (Every 4 hours)
         await workflowQueue.add('sheet-syncer', { action: 'SYNC_SHEETS' }, {
             repeat: { pattern: '0 */4 * * *' }
         });
-        logger.info('✅ Cron jobs scheduled');
+        logger.info('✅ Full suite of cron jobs scheduled');
     } catch (e) {
         logger.error('Failed to schedule cron jobs', e);
     }
@@ -212,22 +177,30 @@ export async function setupCronJobs() {
 
 /**
  * Fallback Scheduler for environments where Redis/BullMQ is mocked.
- * Checks every minute and runs the overdue check at specific hours.
  */
 function setupFallbackCron() {
     if (config.REDIS_URL !== 'internal') return;
     
-    logger.info('🕒 [FallbackCron] Starting Interval-based scheduler (11am, 3pm, 5pm)');
+    logger.info('🕒 [FallbackCron] Starting Full Suite (10am, 11am, 2pm, 3pm, 5pm, 6pm)');
     
-    // Check every minute
     setInterval(async () => {
         const now = new Date();
         const hours = now.getHours();
         const minutes = now.getMinutes();
         
-        // Trigger at exactly 11:00, 15:00, 17:00
-        if (minutes === 0 && [11, 15, 17].includes(hours)) {
-            logger.info(`[FallbackCron] Scheduled time reached (${hours}:00). Triggering overdue check...`);
+        if (minutes !== 0) return; // Only trigger at the start of the hour
+
+        if (hours === 10) {
+            logger.info('[FallbackCron] Triggering Morning Reminders...');
+            await ReminderService.sendMorningReminders();
+        } else if (hours === 14) {
+            logger.info('[FallbackCron] Triggering Afternoon Reminders...');
+            await ReminderService.sendAfternoonReminders();
+        } else if (hours === 18) {
+            logger.info('[FallbackCron] Triggering EOD Reports...');
+            await ReminderService.sendEndOfDayReport();
+        } else if ([11, 15, 17].includes(hours)) {
+            logger.info(`[FallbackCron] Triggering Overdue Check (${hours}:00)...`);
             await runOverdueCheck();
         }
     }, 60000);
@@ -235,15 +208,73 @@ function setupFallbackCron() {
 
 // Initialize everything
 export const initWorker = async () => {
-    logger.info('Initializing Workflow Worker...');
-    await setupCronJobs();
+    if (workersInitialized) return;
+    
+    logger.info('Initializing Background Services...');
+    
+    if (config.REDIS_URL !== 'internal') {
+        try {
+            const workflowWorker = new Worker(
+                'workflow-queue',
+                async (job: Job) => {
+                    logger.info(`Processing workflow job ${job.id}`, job.data);
+                    if (job.data.action === 'CHECK_OVERDUE') await runOverdueCheck();
+                    else if (job.data.action === 'CHECK_MORNING') await ReminderService.sendMorningReminders();
+                    else if (job.data.action === 'CHECK_AFTERNOON') await ReminderService.sendAfternoonReminders();
+                    else if (job.data.action === 'CHECK_EOD') await ReminderService.sendEndOfDayReport();
+                    else if (job.data.action === 'SYNC_SHEETS') {
+                        try {
+                            const res = await fetch('http://localhost:4000/api/sync', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ preview: false, shouldNotify: false })
+                            });
+                            logger.info(`Periodic sync completed with status: ${res.status}`);
+                        } catch (e) {
+                            logger.error('Failed to trigger periodic sync', e);
+                        }
+                    }
+                },
+                { connection: redis as any }
+            );
+
+            const emailWorker = new Worker(
+                'email-queue',
+                async (job: Job) => {
+                    logger.info(`Processing email job ${job.id}: Sending to ${job.data.to}`);
+                    const { GmailIntegration } = require('../integrations/gmail');
+                    try {
+                        await GmailIntegration.sendEmail(job.data.userEmail, job.data.to, job.data.subject, job.data.bodyText);
+                    } catch (error) {
+                        logger.error(`Failed to send email to ${job.data.to}:`, error);
+                        throw error;
+                    }
+                },
+                { connection: redis as any }
+            );
+
+            await setupCronJobs();
+        } catch (e) {
+            logger.error('Failed to initialize BullMQ Workers', e);
+        }
+    }
+    
     setupFallbackCron();
+    workersInitialized = true;
 };
 
 export function scheduleWorkflowJob(data: any, delayMs: number = 0) {
+    if (!workflowQueue) {
+        logger.warn('Workflow queue not initialized. Skipping background job.');
+        return null;
+    }
     return workflowQueue.add('process-workflow', data, { delay: delayMs });
 }
 
 export function scheduleEmailJob(data: any, delayMs: number = 0) {
+    if (!emailQueue) {
+        logger.warn('Email queue not initialized. Skipping background job.');
+        return null;
+    }
     return emailQueue.add('send-email', data, { delay: delayMs });
 }

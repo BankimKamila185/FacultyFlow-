@@ -17,8 +17,10 @@ export const taskResolvers = {
     Mutation: {
         createTask: async (_: any, args: { title: string, description?: string, deadline?: string, assignedToId: string, workflowId?: string }, context: any) => {
             if (!context.user) throw new Error('Unauthenticated');
+            const { assignedToId, ...rest } = args;
             return TaskService.createTask({
-                ...args,
+                ...rest,
+                assignedToIds: [assignedToId],
                 deadline: args.deadline ? new Date(args.deadline) : undefined,
                 createdById: context.user.id
             });
@@ -29,7 +31,7 @@ export const taskResolvers = {
         },
         assignTask: async (_: any, { id, assignedToId }: { id: string, assignedToId: string }, context: any) => {
             if (!context.user) throw new Error('Unauthenticated');
-            return TaskService.assignTask(id, assignedToId);
+            return TaskService.assignTask(id, [assignedToId]);
         },
         deleteTask: async (_: any, { id }: { id: string }, context: any) => {
             if (!context.user) throw new Error('Unauthenticated');
